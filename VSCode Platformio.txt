@@ -1,0 +1,19 @@
+https://www.youtube.com/watch?v=WxELHnnlBmU
+https://www.youtube.com/watch?v=MGdvAjGHPEY
+
+1. Install VSCode
+2. VSCode Marketplace: Install Microsoft C/C++ plugin (c/c++ IntelliSense, debugging and code browsing)
+3. VSCode Marketplace: Install PlatformIO IDE v3.3.3 (Your Gateway to Embedded Software Development Excellence: ...)
+4. Restart
+5. Select PlatformIO Icon
+	Select: QUICK ACCESS->PIO Home->Projects & Configuration
+	Select: Create new project
+		Name: First-Project
+		Board: NodeMCU-32S or Espressif ESP32 Dev Module?
+		Framework: Arduino
+		Finish
+6. Development
+	Select: FIRST-PROJECT->src->main.cpp
+7. Deploy
+	Select: Build (Bottom icon bar)
+	Select: Upload
