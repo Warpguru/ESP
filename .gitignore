@@ -23,6 +23,9 @@
 *.dll
 *.so.*
 
+# Secrets.h header files
+**/Secrets.h
+
 
 # Fortran module files
 *.mod
@@ -67,3 +70,4 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+/Termite.ini
