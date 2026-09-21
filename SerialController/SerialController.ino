@@ -1,4 +1,7 @@
 #include <Arduino.h>
+// Include ESPAsyncWebServer here (first .ino alphabetically) so its types are
+// visible to Server.ino when the Arduino IDE merges all .ino files.
+#include <ESPAsyncWebServer.h>
 #include "esp_log.h"
 
 /**
@@ -21,6 +24,7 @@ static const char* TAG_MAIN = "MAIN";
 #define REG_OUTPUT 0x0012 
 
 // Function Prototypes (ModBus.ino)
+void setupModbus();
 bool readModbusRegister(uint8_t slaveId, uint16_t regAddress, uint16_t &value);
 bool writeModbusRegister(uint8_t slaveId, uint16_t regAddress, uint16_t value);
 
@@ -35,10 +39,12 @@ void setup() {
   ESP_LOGI(TAG_MAIN, "Starting SerialController: Iteration 4 (WiFi & REST)");
   Serial.println("\n--- SerialController: Iteration 4 (WiFi & REST) ---");
   
-  // Initialize UART2 for Riden
+  // Initialize UART2 for Riden, then start the dedicated Modbus task (ModBus.ino).
+  // All Serial2 access is owned by that task — never call Serial2 directly.
   Serial2.begin(BAUDRATE, SERIAL_8N1, RX_PIN, TX_PIN);
   ESP_LOGI(TAG_MAIN, "Riden serial port (UART2) initialized at %d baud", BAUDRATE);
   Serial.println("Riden serial port (UART2) initialized.");
+  setupModbus();
 
   // Initialize WiFi and WebServer (Server.ino)
   setupServer();
@@ -80,4 +86,5 @@ void loop() {
     
     toggleVoltage = !toggleVoltage;
   }
+  
 }

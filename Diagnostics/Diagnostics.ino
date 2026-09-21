@@ -52,6 +52,7 @@ void printSeparator() {
 }
 
 #if defined(ESP32)
+// Also defined in SerialController/ESPInfo.h — Arduino sketch isolation prevents sharing
 const char* getResetReasonString(esp_reset_reason_t reason) {
   switch (reason) {
     case ESP_RST_UNKNOWN:   return "Unknown";
@@ -69,6 +70,7 @@ const char* getResetReasonString(esp_reset_reason_t reason) {
   }
 }
 
+// Also defined in SerialController/ESPInfo.h — Arduino sketch isolation prevents sharing
 const char* getFlashModeString(uint32_t mode) {
   switch (mode) {
     case 0: return "QIO";
