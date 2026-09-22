@@ -1,10 +1,11 @@
+#include <Arduino.h>
 #include <WiFi.h>
-// ESPAsyncWebServer.h is included in SerialController.ino (first file compiled).
-// Including it again here would cause redefinition conflicts with WiFiManager's
-// transitive WebServer.h include; rely on the earlier include instead.
+#include <ESPAsyncWebServer.h>
 #include <WiFiManager.h>
 #include <ArduinoJson.h>
 #include "ESPInfo.h"
+#include "RidenConfig.h"
+#include "ModBus.h"
 #include "esp_log.h"
 
 /**

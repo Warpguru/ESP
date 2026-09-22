@@ -1,8 +1,9 @@
 #include <Arduino.h>
+#include "ModBus.h"
 #include "esp_log.h"
 
 /**
- * ModBus.ino - Protocol Implementation and Diagnostics
+ * ModBus.cpp - Protocol Implementation and Diagnostics
  *
  * Thread-safety design:
  *   All Modbus communication is handled exclusively by modbusTask(), which
