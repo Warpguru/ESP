@@ -145,3 +145,65 @@ const uint16_t VOLTAGE_3V3 = 330;  // 3.30 V in centivolt register units
 
 Or add an inline comment at the declaration site if the values are only used
 in one place.
+
+---
+
+## Java `volatile` vs ESP32 FreeRTOS mutex
+
+The Java source this project is ported from declares all shared fields as `volatile`:
+
+```java
+private volatile double voltageOut;
+```
+
+In the C++ port every shared field is instead protected by a FreeRTOS mutex. This
+is not extra complexity — it is the **direct equivalent** of Java `volatile` on this
+hardware. The reason the two approaches differ is fundamental.
+
+### Java: `volatile` is sufficient
+
+In the Java Memory Model (JLS §17), `volatile` provides two guarantees:
+
+1. **Visibility** — a write by one thread is immediately flushed to main memory and
+   visible to all other threads on the next read.
+2. **Atomicity for individual reads/writes** — a single read or write of any `volatile`
+   field (including `double` and `long`) is atomic by specification (JLS §17.7).
+
+No lock is needed for simple get/set operations on a `volatile` field because the JVM
+and the underlying hardware memory model enforce both guarantees automatically.
+
+### ESP32 / FreeRTOS: `volatile` is not enough
+
+The ESP32 is a **dual-core** Xtensa LX6 processor. Its two cores have separate L1 data
+caches with **no hardware cache-coherency protocol** that maps to Java's memory model.
+C++ `volatile` means only *"do not optimise this access away"* — it makes no promise
+about inter-core visibility or atomicity.
+
+Two concrete risks exist:
+
+| Risk | Java | ESP32 C++ |
+|---|---|---|
+| **Torn 64-bit write** | Impossible — JLS §17.7 guarantees atomicity | Possible — a `double` write may be two 32-bit stores; a task preempted between them produces a half-written value |
+| **Stale cache line** | Impossible — `volatile` flushes to main memory | Possible — Core 1 may read a value still cached from before Core 0 wrote it |
+
+The FreeRTOS mutex call pair (`xSemaphoreTake` / `xSemaphoreGive`) solves both: it
+serialises access across cores **and** includes the memory-barrier instructions that
+flush CPU caches, giving the same guarantee Java's `volatile` provides for free.
+
+### Mapping
+
+```
+Java                            C++ / ESP32
+──────────────────────────      ────────────────────────────────────────
+private volatile double x;  →   double x = 0.0;   // inside ConverterState private section
+this.x = value;             →   xSemaphoreTake(mutex, portMAX_DELAY);
+                                this->x = value;
+                                xSemaphoreGive(mutex);
+return x;                   →   return x;          // single 32-bit read; safe without mutex
+```
+
+> **Note:** This README will be substantially rewritten once the full Java-to-ESP32
+> port is complete. The sections above (Architecture, REST API, Open Issues) still
+> reflect an earlier iteration of the code.
+
+---

@@ -1,11 +1,13 @@
 #include <Arduino.h>
-#include <WiFi.h>
-#include <ESPAsyncWebServer.h>
-#include <WiFiManager.h>
 #include <ArduinoJson.h>
+#include <ESPAsyncWebServer.h>
+#include <WiFi.h>
+#include <WiFiManager.h>
+
+#include "ConverterStateGlobal.h"
 #include "ESPInfo.h"
-#include "RidenConfig.h"
 #include "ModBus.h"
+#include "RidenConfig.h"
 #include "esp_log.h"
 
 /**
@@ -28,9 +30,9 @@ static const char* TAG_SRV = "SERVER";
  */
 static void haltWithSOS() {
   pinMode(FAULT_LED_PIN, OUTPUT);
-  const int dot  = 150;  // ms
+  const int dot = 150;   // ms
   const int dash = 450;  // ms
-  const int gap  = 150;  // ms between elements
+  const int gap = 150;   // ms between elements
   const int word = 700;  // ms between S and O groups
 
   for (;;) {
@@ -57,14 +59,14 @@ static void haltWithSOS() {
       digitalWrite(FAULT_LED_PIN, LOW);
       delay(gap);
     }
-    delay(2000); // pause before repeating
+    delay(2000);  // pause before repeating
   }
 }
 
 // HTTP Status Codes
-#define HTTP_CODE_OK           200
-#define HTTP_CODE_BAD_REQUEST  400
-#define HTTP_CODE_NOT_FOUND    404
+#define HTTP_CODE_OK 200
+#define HTTP_CODE_BAD_REQUEST 400
+#define HTTP_CODE_NOT_FOUND 404
 #define HTTP_CODE_SERVICE_UNAVAILABLE 503
 
 // Global objects — AsyncWebServer handles HTTP and WebSocket on the same port
@@ -99,41 +101,40 @@ static void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
 
 /**
  * GET /voltage
+ * Returns cached value from ConverterState; no live Modbus call.
  */
 static void handleGetVoltage(AsyncWebServerRequest* request) {
   ESP_LOGI(TAG_SRV, "Request: GET /voltage");
-  uint16_t vOutRaw;
-  if (readModbusRegister(RIDEN_ID, REG_V_OUT, vOutRaw)) {
-    float voltage = vOutRaw / 100.0;
-    JsonDocument doc;
-    doc["voltage"] = serialized(String(voltage, 2));
-    String json;
-    serializeJson(doc, json);
-    request->send(HTTP_CODE_OK, "application/json", json);
-  } else {
-    ESP_LOGE(TAG_SRV, "Voltage Read Failed (Modbus Timeout)");
-    request->send(HTTP_CODE_SERVICE_UNAVAILABLE, "application/json", "{\"error\":\"Riden Modbus Timeout\"}");
+  if (!converterState.isDeviceOnline()) {
+    request->send(HTTP_CODE_SERVICE_UNAVAILABLE, "application/json", "{\"error\":\"Device offline\"}");
+    return;
   }
+  double voltage = converterState.getVoltageOut();
+  JsonDocument doc;
+  doc["voltage"] = serialized(String(voltage, 2));
+  String json;
+  serializeJson(doc, json);
+  request->send(HTTP_CODE_OK, "application/json", json);
 }
 
 /**
  * POST /setVoltage?v=5.0
+ * Delegates to ConverterState::applyVoltageSetpoint which writes Modbus and
+ * arms the anti-flicker settle window.
  */
 static void handleSetVoltage(AsyncWebServerRequest* request) {
-  if (request->hasArg("v")) {
-    float voltageValue = request->arg("v").toFloat();
-    ESP_LOGI(TAG_SRV, "Request: POST /setVoltage?v=%.2f", voltageValue);
-    uint16_t rawValue = (uint16_t)(voltageValue * 100);
-
-    if (writeModbusRegister(RIDEN_ID, REG_V_SET, rawValue)) {
-      request->send(HTTP_CODE_OK, "text/plain", "Voltage set to: " + String(voltageValue, 2) + "V");
-    } else {
-      ESP_LOGE(TAG_SRV, "Voltage Write Failed (Modbus Error)");
-      request->send(HTTP_CODE_SERVICE_UNAVAILABLE, "text/plain", "Riden Modbus Write Failed");
-    }
-  } else {
+  if (!request->hasArg("v")) {
     ESP_LOGW(TAG_SRV, "Bad Request: Missing 'v' parameter");
     request->send(HTTP_CODE_BAD_REQUEST, "text/plain", "Bad Request: Missing 'v' parameter");
+    return;
+  }
+  float voltageValue = request->arg("v").toFloat();
+  ESP_LOGI(TAG_SRV, "Request: POST /setVoltage?v=%.2f", voltageValue);
+  if (converterState.applyVoltageSetpoint(voltageValue)) {
+    request->send(HTTP_CODE_OK, "text/plain", "Voltage set to: " + String(voltageValue, 2) + "V");
+  } else {
+    ESP_LOGE(TAG_SRV, "Voltage Write Failed (Modbus Error)");
+    request->send(HTTP_CODE_SERVICE_UNAVAILABLE, "text/plain", "Riden Modbus Write Failed");
   }
 }
 
@@ -214,7 +215,7 @@ void setupServer() {
 
   if (!res) {
     ESP_LOGE(TAG_SRV, "WiFi Connection Failed! Halting with SOS signal.");
-    haltWithSOS(); // never returns
+    haltWithSOS();  // never returns
   }
   ESP_LOGI(TAG_SRV, "WiFi Connected! IP: %s", WiFi.localIP().toString().c_str());
 
@@ -224,11 +225,11 @@ void setupServer() {
 
   // HTTP routes — qualify with AsyncWebRequestMethod:: to avoid ambiguity with
   // the http_parser HTTP_GET/HTTP_POST macros pulled in via WiFiManager → WebServer.h
-  server.on("/",          AsyncWebRequestMethod::HTTP_GET,  handleRoot);
-  server.on("/voltage",   AsyncWebRequestMethod::HTTP_GET,  handleGetVoltage);
-  server.on("/setVoltage",AsyncWebRequestMethod::HTTP_POST, handleSetVoltage);
-  server.on("/status",    AsyncWebRequestMethod::HTTP_GET,  handleGetStatus);
-  server.on("/reset",     AsyncWebRequestMethod::HTTP_GET,  handleReset);
+  server.on("/", AsyncWebRequestMethod::HTTP_GET, handleRoot);
+  server.on("/voltage", AsyncWebRequestMethod::HTTP_GET, handleGetVoltage);
+  server.on("/setVoltage", AsyncWebRequestMethod::HTTP_POST, handleSetVoltage);
+  server.on("/status", AsyncWebRequestMethod::HTTP_GET, handleGetStatus);
+  server.on("/reset", AsyncWebRequestMethod::HTTP_GET, handleReset);
 
   server.begin();
   ESP_LOGI(TAG_SRV, "AsyncWebServer started on port 80 (HTTP + WS on /ws).");

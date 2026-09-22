@@ -1,11 +1,11 @@
 #pragma once
 
 #include <Arduino.h>
-#include <esp_system.h>
+#include <ArduinoJson.h>
+#include <WiFi.h>
 #include <esp_chip_info.h>
 #include <esp_partition.h>
-#include <WiFi.h>
-#include <ArduinoJson.h>
+#include <esp_system.h>
 
 /**
  * ESPInfo.h - ESP32 Hardware and Diagnostics Information
@@ -21,18 +21,30 @@
  */
 inline const char* getResetReasonString(esp_reset_reason_t reason) {
   switch (reason) {
-    case ESP_RST_UNKNOWN:   return "Unknown";
-    case ESP_RST_POWERON:   return "Power On";
-    case ESP_RST_EXT:       return "External Pin";
-    case ESP_RST_SW:        return "Software";
-    case ESP_RST_PANIC:     return "Exception/Panic";
-    case ESP_RST_INT_WDT:   return "Interrupt Watchdog";
-    case ESP_RST_TASK_WDT:  return "Task Watchdog";
-    case ESP_RST_WDT:       return "Other Watchdog";
-    case ESP_RST_DEEPSLEEP: return "Deep Sleep Wakeup";
-    case ESP_RST_BROWNOUT:  return "Brownout";
-    case ESP_RST_SDIO:      return "SDIO";
-    default:                return "Other";
+    case ESP_RST_UNKNOWN:
+      return "Unknown";
+    case ESP_RST_POWERON:
+      return "Power On";
+    case ESP_RST_EXT:
+      return "External Pin";
+    case ESP_RST_SW:
+      return "Software";
+    case ESP_RST_PANIC:
+      return "Exception/Panic";
+    case ESP_RST_INT_WDT:
+      return "Interrupt Watchdog";
+    case ESP_RST_TASK_WDT:
+      return "Task Watchdog";
+    case ESP_RST_WDT:
+      return "Other Watchdog";
+    case ESP_RST_DEEPSLEEP:
+      return "Deep Sleep Wakeup";
+    case ESP_RST_BROWNOUT:
+      return "Brownout";
+    case ESP_RST_SDIO:
+      return "SDIO";
+    default:
+      return "Other";
   }
 }
 
@@ -44,11 +56,16 @@ inline const char* getResetReasonString(esp_reset_reason_t reason) {
  */
 inline const char* getFlashModeString(uint32_t mode) {
   switch (mode) {
-    case 0: return "QIO";
-    case 1: return "QOUT";
-    case 2: return "DIO";
-    case 3: return "DOUT";
-    default: return "Unknown";
+    case 0:
+      return "QIO";
+    case 1:
+      return "QOUT";
+    case 2:
+      return "DIO";
+    case 3:
+      return "DOUT";
+    default:
+      return "Unknown";
   }
 }
 
@@ -85,8 +102,8 @@ inline void fillESPInfo(JsonObject obj) {
   uint64_t chipid = ESP.getEfuseMac();
   char efuseMacBuf[18];
   snprintf(efuseMacBuf, sizeof(efuseMacBuf), "%02X:%02X:%02X:%02X:%02X:%02X",
-    (uint8_t)(chipid),       (uint8_t)(chipid >> 8),  (uint8_t)(chipid >> 16),
-    (uint8_t)(chipid >> 24), (uint8_t)(chipid >> 32), (uint8_t)(chipid >> 40));
+           (uint8_t)(chipid), (uint8_t)(chipid >> 8), (uint8_t)(chipid >> 16),
+           (uint8_t)(chipid >> 24), (uint8_t)(chipid >> 32), (uint8_t)(chipid >> 40));
 
   // Chip Info
   JsonObject chip = obj["chip"].to<JsonObject>();
@@ -129,7 +146,7 @@ inline void fillESPInfo(JsonObject obj) {
   JsonArray partitions = obj["partitions"].to<JsonArray>();
   esp_partition_iterator_t it = esp_partition_find(ESP_PARTITION_TYPE_ANY, ESP_PARTITION_SUBTYPE_ANY, NULL);
   while (it != NULL) {
-    const esp_partition_t *p = esp_partition_get(it);
+    const esp_partition_t* p = esp_partition_get(it);
     JsonObject part = partitions.add<JsonObject>();
     part["label"] = p->label;
     part["type"] = (p->type == 0) ? "App" : "Data";

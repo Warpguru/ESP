@@ -70,4 +70,9 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# Simple serial monitor
 /Termite.ini
+
+# Symlink to Java implementation
+/Template

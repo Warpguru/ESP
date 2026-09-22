@@ -11,6 +11,7 @@
 #ifndef ARDUINO
 
 #include <Arduino.h>
+
 #include "src/SerialController/src/Application.h"
 
 void setup() {
@@ -21,4 +22,4 @@ void loop() {
   applicationLoop();
 }
 
-#endif // ARDUINO
+#endif  // ARDUINO

@@ -1,5 +1,7 @@
-#include <Arduino.h>
 #include "ModBus.h"
+
+#include <Arduino.h>
+
 #include "esp_log.h"
 
 /**
@@ -16,20 +18,20 @@
 static const char* TAG_MB = "MODBUS";
 
 // Modbus Protocol Constants
-#define MODBUS_FC_READ_REGS  0x03
-#define MODBUS_FC_WRITE_REG  0x06
-#define MODBUS_READ_REQ_LEN  8
-#define MODBUS_READ_RES_LEN  7
+#define MODBUS_FC_READ_REGS 0x03
+#define MODBUS_FC_WRITE_REG 0x06
+#define MODBUS_READ_REQ_LEN 8
+#define MODBUS_READ_RES_LEN 7
 #define MODBUS_WRITE_REQ_LEN 8
 #define MODBUS_WRITE_RES_LEN 8
-#define MODBUS_TIMEOUT_MS    1000
+#define MODBUS_TIMEOUT_MS 1000
 
 // Modbus frame is at most 8 bytes; buffer for "XX " x 8 + null = 25 bytes
 #define MODBUS_MAX_FRAME 8
-#define HEX_BUF_SIZE     (MODBUS_MAX_FRAME * 3 + 1)
+#define HEX_BUF_SIZE (MODBUS_MAX_FRAME * 3 + 1)
 
 // Caller timeout: how long a caller waits for the Modbus task to respond
-#define MODBUS_CALL_TIMEOUT_MS  1500
+#define MODBUS_CALL_TIMEOUT_MS 1500
 
 // ---- Queue message types ------------------------------------------------
 
@@ -39,16 +41,16 @@ typedef enum {
 } ModbusOp;
 
 typedef struct {
-  ModbusOp        op;
-  uint8_t         slaveId;
-  uint16_t        regAddress;
-  uint16_t        writeValue;       // used for MB_OP_WRITE
-  QueueHandle_t   responseQueue;    // caller-owned single-slot queue
+  ModbusOp op;
+  uint8_t slaveId;
+  uint16_t regAddress;
+  uint16_t writeValue;          // used for MB_OP_WRITE
+  QueueHandle_t responseQueue;  // caller-owned single-slot queue
 } ModbusRequest;
 
 typedef struct {
-  bool     success;
-  uint16_t value;                   // populated on successful MB_OP_READ
+  bool success;
+  uint16_t value;  // populated on successful MB_OP_READ
 } ModbusResponse;
 
 // The single request queue consumed by modbusTask()
@@ -104,7 +106,7 @@ static uint16_t calculateCRC(uint8_t* buffer, uint8_t length) {
 /**
  * Executes a Modbus READ internally (called only from modbusTask).
  */
-static bool mbDoRead(uint8_t slaveId, uint16_t regAddress, uint16_t &value) {
+static bool mbDoRead(uint8_t slaveId, uint16_t regAddress, uint16_t& value) {
   uint8_t request[MODBUS_READ_REQ_LEN];
   request[0] = slaveId;
   request[1] = MODBUS_FC_READ_REGS;
@@ -245,14 +247,14 @@ void setupModbus() {
  * Reads a single 16-bit register from a Modbus slave.
  * Enqueues the request and blocks until modbusTask returns a result.
  */
-bool readModbusRegister(uint8_t slaveId, uint16_t regAddress, uint16_t &value) {
+bool readModbusRegister(uint8_t slaveId, uint16_t regAddress, uint16_t& value) {
   QueueHandle_t respQ = xQueueCreate(1, sizeof(ModbusResponse));
 
   ModbusRequest req;
-  req.op            = MB_OP_READ;
-  req.slaveId       = slaveId;
-  req.regAddress    = regAddress;
-  req.writeValue    = 0;
+  req.op = MB_OP_READ;
+  req.slaveId = slaveId;
+  req.regAddress = regAddress;
+  req.writeValue = 0;
   req.responseQueue = respQ;
 
   xQueueSend(modbusRequestQueue, &req, portMAX_DELAY);
@@ -279,10 +281,10 @@ bool writeModbusRegister(uint8_t slaveId, uint16_t regAddress, uint16_t value) {
   QueueHandle_t respQ = xQueueCreate(1, sizeof(ModbusResponse));
 
   ModbusRequest req;
-  req.op            = MB_OP_WRITE;
-  req.slaveId       = slaveId;
-  req.regAddress    = regAddress;
-  req.writeValue    = value;
+  req.op = MB_OP_WRITE;
+  req.slaveId = slaveId;
+  req.regAddress = regAddress;
+  req.writeValue = value;
   req.responseQueue = respQ;
 
   xQueueSend(modbusRequestQueue, &req, portMAX_DELAY);
