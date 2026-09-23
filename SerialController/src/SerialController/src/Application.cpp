@@ -8,6 +8,7 @@
 #include "../../../src/devices/src/RidenRD60xx.h"
 #include "../../../src/modbus/src/ModbusConstants.h"
 #include "../../../src/modbus/src/ModbusTransport.h"
+#include "../../../src/service/src/WebSocketService.h"
 #include "esp_log.h"
 
 /**
@@ -77,8 +78,8 @@ void applicationSetup() {
   Serial.begin(115200);
   delay(1000);
 
-  ESP_LOGI(TAG_MAIN, "Starting SerialController: Step 4 (C++ device class hierarchy)");
-  Serial.println("\n--- SerialController: Step 4 (C++ device class hierarchy) ---");
+  ESP_LOGI(TAG_MAIN, "Starting SerialController: Step 5 (WebSocket broadcast)");
+  Serial.println("\n--- SerialController: Step 5 (WebSocket broadcast) ---");
 
   // Construct the Modbus transport and RidenRD60xx driver.
   // ModbusTransport constructor initialises Serial2 and starts the Modbus task on Core 0.
@@ -89,12 +90,27 @@ void applicationSetup() {
   setupServer();
 }
 
+// Global WebSocketService reference — defined in Server.cpp, declared extern
+// so Application.cpp can drain its command queue in the loop.
+// Java equivalent: WebSocketService is injected into DeviceService constructor.
+extern WebSocketService wsService;
+
 void applicationLoop() {
   static uint32_t lastPoll = 0;
 
   // ESPAsyncWebServer is fully non-blocking; this call is a no-op but kept for
   // API compatibility with the Server.h declaration.
   handleServerRequests();
+
+  // Drain WebSocket command queue — execute any command the browser sent.
+  // Runs on Core 1 (this loop task) which owns the Modbus transport, so
+  // activeDevice->setVoltage() etc. are safe here.
+  // Step 5: queue is created but no commands are dispatched yet (stub in Step 6).
+  WsCommand cmd;
+  if (wsService.dequeueCommand(cmd)) {
+    // Step 6 will dispatch cmd.type → activeDevice->setVoltage() etc.
+    ESP_LOGD(TAG_MAIN, "WS command received (type=%d) — dispatching in Step 6.", cmd.type);
+  }
 
   // Poll all Riden registers every 1 second via a single bulk 0x03 frame,
   // then copy the cache into ConverterState for HTTP/WS handlers to read.

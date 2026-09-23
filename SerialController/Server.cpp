@@ -8,6 +8,7 @@
 #include "ConverterStateGlobal.h"
 #include "ESPInfo.h"
 #include "esp_log.h"
+#include "src/service/src/WebSocketService.h"
 
 /**
  * Server.ino - WiFi Management and RESTful API
@@ -70,33 +71,9 @@ static void haltWithSOS() {
 
 // Global objects — AsyncWebServer handles HTTP and WebSocket on the same port
 AsyncWebServer server(80);
-AsyncWebSocket ws("/ws");
+AsyncWebSocket ws("/ws/data");
+WebSocketService wsService(&ws, &converterState);
 WiFiManager wm;
-
-/**
- * WebSocket event handler (PoC stub — broadcast logic added in Step 5).
- * Endpoint: ws://<ip>/ws  (port 80, same as HTTP)
- */
-static void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
-                      AwsEventType type, void* arg, uint8_t* data, size_t len) {
-  // ESPAsyncWebServer callbacks run on the lwIP async TCP task, not the Arduino
-  // main task. Use Serial.printf in addition to ESP_LOGI to ensure the message
-  // is visible in the Arduino IDE Serial Monitor regardless of task context.
-  if (type == WS_EVT_CONNECT) {
-    ESP_LOGI(TAG_SRV, "[WS] Client #%u connected from %s", client->id(),
-             client->remoteIP().toString().c_str());
-    Serial.printf("[WS] Client #%u connected from %s\r\n", client->id(),
-                  client->remoteIP().toString().c_str());
-    client->text("{\"poc\":\"ESPAsyncWebServer WebSocket connected!\"}");
-  } else if (type == WS_EVT_DISCONNECT) {
-    ESP_LOGI(TAG_SRV, "[WS] Client #%u disconnected", client->id());
-    Serial.printf("[WS] Client #%u disconnected\r\n", client->id());
-  } else if (type == WS_EVT_ERROR) {
-    ESP_LOGE(TAG_SRV, "[WS] Client #%u error", client->id());
-    Serial.printf("[WS] Client #%u error\r\n", client->id());
-  }
-  // WS_EVT_DATA (incoming commands) handled in Step 6
-}
 
 /**
  * GET /voltage
@@ -183,7 +160,7 @@ static void handleRoot(AsyncWebServerRequest* request) {
 
   html += "<h1>SerialController REST API</h1>";
   html += "<p>Device IP: <strong>" + ip + "</strong> | SSID: <strong>" + WiFi.SSID() + "</strong></p>";
-  html += "<p>WebSocket: <code>ws://" + ip + "/ws</code></p>";
+  html += "<p>WebSocket: <code>ws://" + ip + "/ws/data</code></p>";
 
   html += "<div class='endpoint'><h3>1. GET <a href='/voltage'>/voltage</a></h3>";
   html += "<p>Retrieves current output voltage from Riden.</p>";
@@ -218,8 +195,9 @@ void setupServer() {
   }
   ESP_LOGI(TAG_SRV, "WiFi Connected! IP: %s", WiFi.localIP().toString().c_str());
 
-  // Attach WebSocket handler — endpoint: ws://<ip>/ws
-  ws.onEvent(onWsEvent);
+  // Initialise WebSocketService: registers event handler, starts broadcast task.
+  // Java equivalent: WebSocketService#start called after Javalin server starts.
+  wsService.begin();
   server.addHandler(&ws);
 
   // HTTP routes — qualify with AsyncWebRequestMethod:: to avoid ambiguity with
@@ -231,7 +209,7 @@ void setupServer() {
   server.on("/reset", AsyncWebRequestMethod::HTTP_GET, handleReset);
 
   server.begin();
-  ESP_LOGI(TAG_SRV, "AsyncWebServer started on port 80 (HTTP + WS on /ws).");
+  ESP_LOGI(TAG_SRV, "AsyncWebServer started on port 80 (HTTP + WS on /ws/data).");
 }
 
 /**
