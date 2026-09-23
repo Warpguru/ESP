@@ -146,18 +146,12 @@ writing raw Modbus registers directly.
 
 ---
 
-### TODO-9 · `/setVoltage` registered as `HTTP_POST` but uses a query parameter (`Server.ino:195`)
+### ~~TODO-9~~ · ✅ RESOLVED — `/setVoltage` query-parameter inconsistency (Step 7)
 
-**Description:** REST convention uses query parameters for GET requests and a
-request body for POST. The current implementation accepts the voltage value
-only as a URL query string (`server.arg("v")`), which works with both verbs
-via query string but is semantically inconsistent. The `curl` example in the
-root page uses `-X POST` with a query string, which is technically valid but
-unconventional and may confuse REST clients or API documentation tools.
-
-**Fix:** Either change the registration to `HTTP_GET` (simpler, consistent with
-query-parameter convention) or switch to reading the value from the POST body
-as `application/x-www-form-urlencoded` or JSON.
+**Resolved in Step 7.** The canonical voltage write endpoint is now
+`PUT /api/voltage` with a JSON body `{"voltage": 5.0}`, matching the Java
+`RestService` spec exactly. The legacy `POST /setVoltage?v=x` is kept as a
+deprecated backward-compatibility alias but is no longer the recommended path.
 
 ---
 
