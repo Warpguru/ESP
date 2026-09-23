@@ -14,8 +14,11 @@ class DC2DCConverter {
  public:
   virtual ~DC2DCConverter() = default;
 
-  /** Returns the device identification string. */
+  /** Returns the device identification string (e.g. "RD6006"). */
   virtual const char* getDevice() = 0;
+
+  /** Returns the manufacturer string (e.g. "Riden"), or nullptr if not yet detected. */
+  virtual const char* getManufacturer() = 0;
 
   /** Sets the output voltage setpoint (volts). */
   virtual bool setVoltage(double volts) = 0;

@@ -1,8 +1,5 @@
 #include "ConverterState.h"
 
-#include "../../../ModBus.h"
-#include "../../../RidenConfig.h"
-
 /**
  * ConverterState.cpp - Thread-safe DC/DC converter state holder.
  *
@@ -12,9 +9,6 @@
  * convention), this->fieldName = fieldName is used to disambiguate, exactly
  * as Java uses this.fieldName = fieldName.
  */
-
-// Settle window duration in milliseconds (matches Java DeviceService constant).
-static constexpr uint32_t SETTLE_MS = 2000;
 
 ConverterState::ConverterState() {
   mutex = xSemaphoreCreateMutex();
@@ -266,38 +260,3 @@ const char* ConverterState::getFirmwareVersion() const {
   return firmwareVersion;
 }
 
-// ---- Settle-window helpers --------------------------------------------------
-
-bool ConverterState::isVoltagePending() const {
-  return millis() < voltagePendingUntil;
-}
-
-bool ConverterState::isCurrentPending() const {
-  return millis() < currentPendingUntil;
-}
-
-// ---- Setpoint apply ---------------------------------------------------------
-
-bool ConverterState::applyVoltageSetpoint(double volts) {
-  uint16_t raw = (uint16_t)(volts * 100.0);
-  bool ok = writeModbusRegister(RIDEN_ID, REG_V_SET, raw);
-  if (ok) {
-    xSemaphoreTake(mutex, portMAX_DELAY);
-    voltageSet = volts;
-    voltagePendingUntil = millis() + SETTLE_MS;
-    xSemaphoreGive(mutex);
-  }
-  return ok;
-}
-
-bool ConverterState::applyCurrentSetpoint(double amps) {
-  uint16_t raw = (uint16_t)(amps * 1000.0);
-  bool ok = writeModbusRegister(RIDEN_ID, REG_I_SET, raw);
-  if (ok) {
-    xSemaphoreTake(mutex, portMAX_DELAY);
-    currentSet = amps;
-    currentPendingUntil = millis() + SETTLE_MS;
-    xSemaphoreGive(mutex);
-  }
-  return ok;
-}

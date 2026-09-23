@@ -4,10 +4,9 @@
 #include <WiFi.h>
 #include <WiFiManager.h>
 
+#include "ActiveDevice.h"
 #include "ConverterStateGlobal.h"
 #include "ESPInfo.h"
-#include "ModBus.h"
-#include "RidenConfig.h"
 #include "esp_log.h"
 
 /**
@@ -130,7 +129,7 @@ static void handleSetVoltage(AsyncWebServerRequest* request) {
   }
   float voltageValue = request->arg("v").toFloat();
   ESP_LOGI(TAG_SRV, "Request: POST /setVoltage?v=%.2f", voltageValue);
-  if (converterState.applyVoltageSetpoint(voltageValue)) {
+  if (activeDevice != nullptr && activeDevice->setVoltage(voltageValue)) {
     request->send(HTTP_CODE_OK, "text/plain", "Voltage set to: " + String(voltageValue, 2) + "V");
   } else {
     ESP_LOGE(TAG_SRV, "Voltage Write Failed (Modbus Error)");

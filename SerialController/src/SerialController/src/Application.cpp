@@ -2,10 +2,12 @@
 
 #include <Arduino.h>
 
+#include "../../../ActiveDevice.h"
 #include "../../../ConverterStateGlobal.h"
-#include "../../../ModBus.h"
-#include "../../../RidenConfig.h"
 #include "../../../Server.h"
+#include "../../../src/devices/src/RidenRD60xx.h"
+#include "../../../src/modbus/src/ModbusConstants.h"
+#include "../../../src/modbus/src/ModbusTransport.h"
 #include "esp_log.h"
 
 /**
@@ -18,9 +20,21 @@
 
 static const char* TAG_MAIN = "MAIN";
 
+// Serial pins for the Riden device (UART2).
+// These will move into the ModbusTransport constructor call in Step 8 when
+// RidenConfig.h is fully removed; kept here as named constants for clarity.
+static constexpr int RIDEN_RX_PIN  = 16;
+static constexpr int RIDEN_TX_PIN  = 17;
+static constexpr int RIDEN_BAUD    = ModbusConstants::BAUD_9600;
+static constexpr uint8_t RIDEN_SLAVE = ModbusConstants::SLAVE_ADDRESS_1;
+
 // Single global ConverterState instance — shared with Server.cpp via
 // ConverterStateGlobal.h (extern declaration).
 ConverterState converterState;
+
+// Single global DC2DCConverter pointer — shared with Server.cpp via
+// ActiveDevice.h (extern declaration). Assigned in applicationSetup().
+DC2DCConverter* activeDevice = nullptr;
 
 // ---- Online/offline hysteresis counters ------------------------------------
 // Match Java DeviceService: online immediately on first success;
@@ -30,12 +44,11 @@ static bool wasOnline = false;
 static constexpr int FAIL_THRESHOLD = 3;
 
 /**
- * Read one 16-bit register; on success update state and reset failure counter.
- * On failure increment the counter and apply hysteresis rules.
- * Returns true on success.
+ * Updates the online/offline hysteresis state after a poll result.
+ *
+ * Java equivalent: com.serial.service.DeviceService online/offline logic.
  */
-static bool pollRegister(uint8_t slaveId, uint16_t reg, uint16_t& out) {
-  bool ok = readModbusRegister(slaveId, reg, out);
+static void applyPollResult(bool ok) {
   if (ok) {
     failCount = 0;
     if (!wasOnline) {
@@ -45,10 +58,10 @@ static bool pollRegister(uint8_t slaveId, uint16_t reg, uint16_t& out) {
     }
   } else {
     failCount++;
-    // Timeout (first failure) → offline immediately; other errors need 3 strikes
     if (!wasOnline) {
       // already offline — nothing to change
     } else if (failCount == 1) {
+      // Timeout (first failure) → offline immediately
       converterState.setDeviceOnline(false);
       wasOnline = false;
       ESP_LOGW(TAG_MAIN, "Device offline (timeout / first failure)");
@@ -58,21 +71,19 @@ static bool pollRegister(uint8_t slaveId, uint16_t reg, uint16_t& out) {
       ESP_LOGW(TAG_MAIN, "Device offline after %d consecutive failures", failCount);
     }
   }
-  return ok;
 }
 
 void applicationSetup() {
   Serial.begin(115200);
   delay(1000);
 
-  ESP_LOGI(TAG_MAIN, "Starting SerialController: Step 3 (ConverterState wiring)");
-  Serial.println("\n--- SerialController: Step 3 (ConverterState wiring) ---");
+  ESP_LOGI(TAG_MAIN, "Starting SerialController: Step 4 (C++ device class hierarchy)");
+  Serial.println("\n--- SerialController: Step 4 (C++ device class hierarchy) ---");
 
-  // Initialize UART2 for Riden, then start the dedicated Modbus task.
-  // All Serial2 access is owned by that task — never call Serial2 directly.
-  Serial2.begin(BAUDRATE, SERIAL_8N1, RX_PIN, TX_PIN);
-  ESP_LOGI(TAG_MAIN, "Riden serial port (UART2) initialized at %d baud", BAUDRATE);
-  setupModbus();
+  // Construct the Modbus transport and RidenRD60xx driver.
+  // ModbusTransport constructor initialises Serial2 and starts the Modbus task on Core 0.
+  ModbusTransport* transport = new ModbusTransport(RIDEN_RX_PIN, RIDEN_TX_PIN, RIDEN_BAUD);
+  activeDevice = new RidenRD60xx(transport, RIDEN_SLAVE);
 
   // Initialize WiFi and the async HTTP + WebSocket server.
   setupServer();
@@ -85,33 +96,33 @@ void applicationLoop() {
   // API compatibility with the Server.h declaration.
   handleServerRequests();
 
-  // Poll Riden registers every 1 second and update ConverterState.
+  // Poll all Riden registers every 1 second via a single bulk 0x03 frame,
+  // then copy the cache into ConverterState for HTTP/WS handlers to read.
   if (millis() - lastPoll >= 1000) {
     lastPoll = millis();
 
-    uint16_t raw;
+    bool ok = activeDevice->pollAll();
+    applyPollResult(ok);
 
-    // Measured voltage out (REG_V_OUT = 0x0008, unit: 10 mV → divide by 100)
-    if (pollRegister(RIDEN_ID, REG_V_OUT, raw)) {
-      converterState.setVoltageOut(raw / 100.0);
-    }
+    if (ok) {
+      converterState.setVoltageOut(activeDevice->getVoltage());
+      converterState.setCurrentOut(activeDevice->getCurrent());
+      converterState.setPowerOut(activeDevice->getPower());
+      converterState.setVoltageIn(activeDevice->getInputVoltage());
+      converterState.setTemperatureCelsius(activeDevice->getTemperatureCelsius());
+      converterState.setVoltageSet(activeDevice->getVoltageSet());
+      converterState.setCurrentSet(activeDevice->getCurrentSet());
+      converterState.setOutputEnabled(activeDevice->getOutput());
+      converterState.setKeypadLocked(activeDevice->getKeypad());
+      converterState.setProtectionState(activeDevice->getProtectionState() ? 1 : 0);
+      converterState.setCvMode(activeDevice->isCvMode());
 
-    // Measured current out (REG_I_OUT = 0x0009, unit: 1 mA → divide by 1000)
-    if (pollRegister(RIDEN_ID, REG_I_OUT, raw)) {
-      converterState.setCurrentOut(raw / 1000.0);
-    }
-
-    // Voltage setpoint — skip if a recent applyVoltageSetpoint() is still settling
-    if (!converterState.isVoltagePending()) {
-      if (pollRegister(RIDEN_ID, REG_V_SET, raw)) {
-        converterState.setVoltageSet(raw / 100.0);
+      // Set device identity on first successful poll.
+      if (activeDevice->getDevice() != nullptr) {
+        converterState.setDeviceName(activeDevice->getDevice());
       }
-    }
-
-    // Current setpoint — skip if a recent applyCurrentSetpoint() is still settling
-    if (!converterState.isCurrentPending()) {
-      if (pollRegister(RIDEN_ID, REG_I_SET, raw)) {
-        converterState.setCurrentSet(raw / 1000.0);
+      if (activeDevice->getManufacturer() != nullptr) {
+        converterState.setManufacturer(activeDevice->getManufacturer());
       }
     }
   }

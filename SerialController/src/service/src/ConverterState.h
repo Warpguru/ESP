@@ -6,9 +6,6 @@
 
 #include "ConverterTopology.h"
 
-// ConverterState.cpp includes ModBus.h and RidenConfig.h for the applySetpoint
-// methods. Callers that need the full Modbus API include ModBus.h directly.
-
 /**
  * ConverterState.h - Thread-safe holder of all DC/DC converter state.
  *
@@ -113,38 +110,6 @@ class ConverterState {
   void setFirmwareVersion(const char* firmwareVersion);
   const char* getFirmwareVersion() const;
 
-  // ---- Setpoint apply with settle-window (anti-flicker) -------------------
-  //
-  // These methods write the value to the device via Modbus, update the cached
-  // setpoint, and arm a 2-second suppress window so the polling task does not
-  // overwrite the displayed value with a transient device read-back.
-  // (ESP32-specific — no Java equivalent in ConverterState.java; the settle
-  // window logic lives in DeviceService.java on the Java side.)
-
-  /**
-   * Write voltage setpoint to device, update cache, arm settle window.
-   * Returns true on successful Modbus write.
-   */
-  bool applyVoltageSetpoint(double volts);
-
-  /**
-   * Write current setpoint to device, update cache, arm settle window.
-   * Returns true on successful Modbus write.
-   */
-  bool applyCurrentSetpoint(double amps);
-
-  /**
-   * Returns true if the voltage settle window is still active.
-   * The polling task should skip updating voltageSet while this is true.
-   */
-  bool isVoltagePending() const;
-
-  /**
-   * Returns true if the current settle window is still active.
-   * The polling task should skip updating currentSet while this is true.
-   */
-  bool isCurrentPending() const;
-
  private:
   SemaphoreHandle_t mutex;
 
@@ -158,12 +123,6 @@ class ConverterState {
   // Setpoints
   double voltageSet = 0.0;
   double currentSet = 0.0;
-
-  // Settle-window timestamps (millis). While millis() < timestamp, the
-  // corresponding setpoint read-back from the poller is suppressed.
-  // (ESP32-specific — not present in Java ConverterState)
-  uint32_t voltagePendingUntil = 0;
-  uint32_t currentPendingUntil = 0;
 
   // Output & mode
   bool outputEnabled = false;
