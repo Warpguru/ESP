@@ -23,9 +23,9 @@ static const char* TAG_MAIN = "MAIN";
 // Serial pins for the Riden device (UART2).
 // These will move into the ModbusTransport constructor call in Step 8 when
 // RidenConfig.h is fully removed; kept here as named constants for clarity.
-static constexpr int RIDEN_RX_PIN  = 16;
-static constexpr int RIDEN_TX_PIN  = 17;
-static constexpr int RIDEN_BAUD    = ModbusConstants::BAUD_9600;
+static constexpr int RIDEN_RX_PIN = 16;
+static constexpr int RIDEN_TX_PIN = 17;
+static constexpr int RIDEN_BAUD = ModbusConstants::BAUD_9600;
 static constexpr uint8_t RIDEN_SLAVE = ModbusConstants::SLAVE_ADDRESS_1;
 
 // Single global ConverterState instance — shared with Server.cpp via

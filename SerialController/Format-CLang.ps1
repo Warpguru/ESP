@@ -1,6 +1,6 @@
-# format.ps1 - Reformat all C/C++ sources to Arduino IDE style (2-space indent).
+# Format-CLang.ps1 - Reformat all C/C++ sources to Arduino IDE style (2-space indent).
 # Uses the clang-format bundled with Arduino IDE.
-# Run from the workspace root: .\SerialController\format.ps1
+# Run from the workspace root: .\SerialController\Format-CLang.ps1
 
 $cf = "d:\development\Arduino\Users\ArduinoIDE\AppData\Local\Programs\Arduino IDE\resources\app\lib\backend\resources\clang-format.exe"
 

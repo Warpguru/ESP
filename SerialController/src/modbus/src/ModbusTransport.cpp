@@ -154,7 +154,9 @@ static bool readRegister(uint8_t slave, uint16_t reg, uint16_t& value) {
   frame[6] = (uint8_t)crc;
   frame[7] = (uint8_t)(crc >> 8);
 
-  while (Serial2.available()) { Serial2.read(); }
+  while (Serial2.available()) {
+    Serial2.read();
+  }
   Serial2.write(frame, 8);
 
   uint8_t resp[7];
@@ -194,7 +196,9 @@ static bool readRegisters(uint8_t slave, uint16_t startReg, uint8_t count, uint1
   frame[6] = (uint8_t)crc;
   frame[7] = (uint8_t)(crc >> 8);
 
-  while (Serial2.available()) { Serial2.read(); }
+  while (Serial2.available()) {
+    Serial2.read();
+  }
   Serial2.write(frame, 8);
 
   // Response: [slave][fc][byte_count][val_hi][val_lo]... × count [crc_lo][crc_hi]
@@ -237,7 +241,9 @@ static bool writeRegister(uint8_t slave, uint16_t reg, uint16_t value) {
   frame[6] = (uint8_t)crc;
   frame[7] = (uint8_t)(crc >> 8);
 
-  while (Serial2.available()) { Serial2.read(); }
+  while (Serial2.available()) {
+    Serial2.read();
+  }
   Serial2.write(frame, 8);
 
   uint8_t resp[8];
@@ -281,7 +287,9 @@ static bool writeRegisters(uint8_t slave, uint16_t startReg, const uint16_t* val
   frame[frameLen - 2] = (uint8_t)crc;
   frame[frameLen - 1] = (uint8_t)(crc >> 8);
 
-  while (Serial2.available()) { Serial2.read(); }
+  while (Serial2.available()) {
+    Serial2.read();
+  }
   Serial2.write(frame, frameLen);
 
   // Response: [slave][0x10][start_hi][start_lo][qty_hi][qty_lo][crc_lo][crc_hi]

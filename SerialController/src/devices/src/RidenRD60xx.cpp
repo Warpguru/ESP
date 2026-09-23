@@ -16,22 +16,22 @@ static const char* TAG_RD = "RD60XX";
 // ---- Static DeviceRegister descriptors -------------------------------------
 // Java equivalent: public static final DeviceRegister fields in RidenRD60xx.java
 
-const DeviceRegister RidenRD60xx::DEVICE_ID        ("Model Identification",  nullptr, RidenRegistersRD60xx::REG_DEVICE_ID);
-const DeviceRegister RidenRD60xx::FIRMWARE_VERSION ("Firmware Version",      nullptr, RidenRegistersRD60xx::REG_FIRMWARE,          100);
-const DeviceRegister RidenRD60xx::TEMP_CELSIUS      ("Temperature Celsius",   "°C",    RidenRegistersRD60xx::REG_TEMP_CELSIUS);
-const DeviceRegister RidenRD60xx::VSET              ("Voltage Setpoint",      "V",     RidenRegistersRD60xx::REG_VSET,              100);
-const DeviceRegister RidenRD60xx::ISET              ("Current Setpoint",      "A",     RidenRegistersRD60xx::REG_ISET,             1000);
-const DeviceRegister RidenRD60xx::VOUT              ("Output Voltage",        "V",     RidenRegistersRD60xx::REG_VOUT,              100);
-const DeviceRegister RidenRD60xx::IOUT              ("Output Current",        "A",     RidenRegistersRD60xx::REG_IOUT,             1000);
-const DeviceRegister RidenRD60xx::AH                ("Accumulated Amperehours","Ah",   RidenRegistersRD60xx::REG_AH);
-const DeviceRegister RidenRD60xx::POUT              ("Output Power",          "W",     RidenRegistersRD60xx::REG_POUT,              100);
-const DeviceRegister RidenRD60xx::VIN               ("Voltage Input",         "V",     RidenRegistersRD60xx::REG_VIN,               100);
-const DeviceRegister RidenRD60xx::LOCK              ("Keypad Lock",           nullptr, RidenRegistersRD60xx::REG_KEYPAD_LOCK);
-const DeviceRegister RidenRD60xx::PROTECTION_STATE  ("Protection Status",     nullptr, RidenRegistersRD60xx::REG_PROTECTION_STATE);
-const DeviceRegister RidenRD60xx::MODE              ("CC/CV Mode",            nullptr, RidenRegistersRD60xx::REG_MODE);
-const DeviceRegister RidenRD60xx::OUTPUT_ENABLE     ("Output Enable",         nullptr, RidenRegistersRD60xx::REG_OUTPUT_ENABLE);
-const DeviceRegister RidenRD60xx::PRESET            ("Preset Selector",       "Mx",    RidenRegistersRD60xx::REG_PRESET);
-const DeviceRegister RidenRD60xx::IRANGE            ("Current Range",         "A",     RidenRegistersRD60xx::REG_CURRENT_RANGE);
+const DeviceRegister RidenRD60xx::DEVICE_ID("Model Identification", nullptr, RidenRegistersRD60xx::REG_DEVICE_ID);
+const DeviceRegister RidenRD60xx::FIRMWARE_VERSION("Firmware Version", nullptr, RidenRegistersRD60xx::REG_FIRMWARE, 100);
+const DeviceRegister RidenRD60xx::TEMP_CELSIUS("Temperature Celsius", "°C", RidenRegistersRD60xx::REG_TEMP_CELSIUS);
+const DeviceRegister RidenRD60xx::VSET("Voltage Setpoint", "V", RidenRegistersRD60xx::REG_VSET, 100);
+const DeviceRegister RidenRD60xx::ISET("Current Setpoint", "A", RidenRegistersRD60xx::REG_ISET, 1000);
+const DeviceRegister RidenRD60xx::VOUT("Output Voltage", "V", RidenRegistersRD60xx::REG_VOUT, 100);
+const DeviceRegister RidenRD60xx::IOUT("Output Current", "A", RidenRegistersRD60xx::REG_IOUT, 1000);
+const DeviceRegister RidenRD60xx::AH("Accumulated Amperehours", "Ah", RidenRegistersRD60xx::REG_AH);
+const DeviceRegister RidenRD60xx::POUT("Output Power", "W", RidenRegistersRD60xx::REG_POUT, 100);
+const DeviceRegister RidenRD60xx::VIN("Voltage Input", "V", RidenRegistersRD60xx::REG_VIN, 100);
+const DeviceRegister RidenRD60xx::LOCK("Keypad Lock", nullptr, RidenRegistersRD60xx::REG_KEYPAD_LOCK);
+const DeviceRegister RidenRD60xx::PROTECTION_STATE("Protection Status", nullptr, RidenRegistersRD60xx::REG_PROTECTION_STATE);
+const DeviceRegister RidenRD60xx::MODE("CC/CV Mode", nullptr, RidenRegistersRD60xx::REG_MODE);
+const DeviceRegister RidenRD60xx::OUTPUT_ENABLE("Output Enable", nullptr, RidenRegistersRD60xx::REG_OUTPUT_ENABLE);
+const DeviceRegister RidenRD60xx::PRESET("Preset Selector", "Mx", RidenRegistersRD60xx::REG_PRESET);
+const DeviceRegister RidenRD60xx::IRANGE("Current Range", "A", RidenRegistersRD60xx::REG_CURRENT_RANGE);
 
 // ---- Lookup map from raw 5-digit model ID to retail model name -------------
 // Java equivalent: private static final Map<Integer, String> KNOWN_DEVICE_IDS
@@ -42,17 +42,34 @@ struct DeviceIdEntry {
 };
 
 static const DeviceIdEntry KNOWN_DEVICE_IDS[] = {
-  { 60060, "RD6006" },  { 60061, "RD6006" },  { 60062, "RD6006" },
-  { 60063, "RD6006" },  { 60064, "RD6006" },  { 60065, "RD6006P" },
-  { 60066, "RK6006" },
-  { 60120, "RD6012" },  { 60121, "RD6012" },  { 60122, "RD6012" },
-  { 60123, "RD6012" },  { 60124, "RD6012" },  { 60125, "RD6012P" },
-  { 60180, "RD6018" },  { 60181, "RD6018" },  { 60182, "RD6018" },
-  { 60183, "RD6018" },  { 60184, "RD6018" },
-  { 60240, "RD6024" },  { 60241, "RD6024" },  { 60242, "RD6024" },
-  { 60243, "RD6024" },  { 60244, "RD6024" },
-  { 60300, "RD6030" },  { 60301, "RD6030" },  { 60302, "RD6030" },
-  { 60303, "RD6030" },  { 60304, "RD6030" },
+    {60060, "RD6006"},
+    {60061, "RD6006"},
+    {60062, "RD6006"},
+    {60063, "RD6006"},
+    {60064, "RD6006"},
+    {60065, "RD6006P"},
+    {60066, "RK6006"},
+    {60120, "RD6012"},
+    {60121, "RD6012"},
+    {60122, "RD6012"},
+    {60123, "RD6012"},
+    {60124, "RD6012"},
+    {60125, "RD6012P"},
+    {60180, "RD6018"},
+    {60181, "RD6018"},
+    {60182, "RD6018"},
+    {60183, "RD6018"},
+    {60184, "RD6018"},
+    {60240, "RD6024"},
+    {60241, "RD6024"},
+    {60242, "RD6024"},
+    {60243, "RD6024"},
+    {60244, "RD6024"},
+    {60300, "RD6030"},
+    {60301, "RD6030"},
+    {60302, "RD6030"},
+    {60303, "RD6030"},
+    {60304, "RD6030"},
 };
 
 static constexpr int KNOWN_DEVICE_IDS_COUNT =
@@ -126,25 +143,25 @@ bool RidenRD60xx::pollAll() {
     return false;
   }
 
-  cacheDeviceId          = r[0];
-  cacheSerialHigh        = r[1];
-  cacheSerialLow         = r[2];
-  cacheFirmwareRaw       = r[3];
-  cacheTempSignCelsius   = r[4];
-  cacheTemperature       = TEMP_CELSIUS.decode(r[5]);
+  cacheDeviceId = r[0];
+  cacheSerialHigh = r[1];
+  cacheSerialLow = r[2];
+  cacheFirmwareRaw = r[3];
+  cacheTempSignCelsius = r[4];
+  cacheTemperature = TEMP_CELSIUS.decode(r[5]);
   cacheTempSignFahrenheit = r[6];
-  cacheTemperatureFahr   = r[7];
-  cacheVoltageSet        = VSET.decode(r[8]);
-  cacheCurrentSet        = ISET.decode(r[9]);
-  cacheVoltageOut        = VOUT.decode(r[10]);
-  cacheCurrentOut        = IOUT.decode(r[11]);
-  cacheAh                = r[12];
-  cachePowerOut          = POUT.decode(r[13]);
-  cacheVoltageIn         = VIN.decode(r[14]);
-  cacheLock              = r[15];
-  cacheProtection        = r[16];
-  cacheMode              = r[17];
-  cacheOutput            = r[18];
+  cacheTemperatureFahr = r[7];
+  cacheVoltageSet = VSET.decode(r[8]);
+  cacheCurrentSet = ISET.decode(r[9]);
+  cacheVoltageOut = VOUT.decode(r[10]);
+  cacheCurrentOut = IOUT.decode(r[11]);
+  cacheAh = r[12];
+  cachePowerOut = POUT.decode(r[13]);
+  cacheVoltageIn = VIN.decode(r[14]);
+  cacheLock = r[15];
+  cacheProtection = r[16];
+  cacheMode = r[17];
+  cacheOutput = r[18];
 
   // On first successful poll, identify the device from register 0x0000.
   if (device == nullptr) {

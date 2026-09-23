@@ -76,23 +76,23 @@ class RidenRD60xx : public ModbusDevice, public DC2DCConverter {
   // [16]  PROTECTION  [17] MODE        [18] OUTPUT
   //
   // Java equivalent: private volatile fields in RidenRD60xx.java
-  int    cacheDeviceId         = 0;    // offset  0
-  int    cacheSerialHigh       = 0;    // offset  1
-  int    cacheSerialLow        = 0;    // offset  2
-  int    cacheFirmwareRaw      = 0;    // offset  3
-  int    cacheTempSignCelsius  = 0;    // offset  4
-  double cacheTemperature      = 0.0;  // offset  5
-  int    cacheTempSignFahrenheit = 0;  // offset  6
-  int    cacheTemperatureFahr  = 0;    // offset  7
-  double cacheVoltageSet       = 0.0;  // offset  8
-  double cacheCurrentSet       = 0.0;  // offset  9
-  double cacheVoltageOut       = 0.0;  // offset 10
-  double cacheCurrentOut       = 0.0;  // offset 11
-  int    cacheAh               = 0;    // offset 12
-  double cachePowerOut         = 0.0;  // offset 13
-  double cacheVoltageIn        = 0.0;  // offset 14
-  int    cacheLock             = 0;    // offset 15
-  int    cacheProtection       = 0;    // offset 16
-  int    cacheMode             = 0;    // offset 17
-  int    cacheOutput           = 0;    // offset 18
+  int cacheDeviceId = 0;            // offset  0
+  int cacheSerialHigh = 0;          // offset  1
+  int cacheSerialLow = 0;           // offset  2
+  int cacheFirmwareRaw = 0;         // offset  3
+  int cacheTempSignCelsius = 0;     // offset  4
+  double cacheTemperature = 0.0;    // offset  5
+  int cacheTempSignFahrenheit = 0;  // offset  6
+  int cacheTemperatureFahr = 0;     // offset  7
+  double cacheVoltageSet = 0.0;     // offset  8
+  double cacheCurrentSet = 0.0;     // offset  9
+  double cacheVoltageOut = 0.0;     // offset 10
+  double cacheCurrentOut = 0.0;     // offset 11
+  int cacheAh = 0;                  // offset 12
+  double cachePowerOut = 0.0;       // offset 13
+  double cacheVoltageIn = 0.0;      // offset 14
+  int cacheLock = 0;                // offset 15
+  int cacheProtection = 0;          // offset 16
+  int cacheMode = 0;                // offset 17
+  int cacheOutput = 0;              // offset 18
 };

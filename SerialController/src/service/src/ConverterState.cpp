@@ -259,4 +259,3 @@ void ConverterState::setFirmwareVersion(const char* firmwareVersion) {
 const char* ConverterState::getFirmwareVersion() const {
   return firmwareVersion;
 }
-
