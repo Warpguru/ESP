@@ -41,6 +41,15 @@ class RidenRD60xx : public ModbusDevice, public DC2DCConverter {
 
   RidenRD60xx(ModbusTransport* transport, uint8_t slave = 1);
 
+  /**
+   * Probes the device by reading the model ID register (0x0000) and validating
+   * against KNOWN_DEVICE_IDS. Sets manufacturer and device strings on success.
+   * Returns true if the device was identified.
+   *
+   * Java equivalent: RidenRD60xx#verifyDevicePresent(List<Integer> bauds) inner body.
+   */
+  bool verifyDevicePresent();
+
   const char* getDevice() override;
   const char* getManufacturer() override;
   bool setVoltage(double volts) override;

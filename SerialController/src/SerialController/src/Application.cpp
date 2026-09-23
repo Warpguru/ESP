@@ -2,9 +2,9 @@
 
 #include <Arduino.h>
 
-#include "../../devices/src/RidenRD60xx.h"
 #include "../../modbus/src/ModbusConstants.h"
 #include "../../modbus/src/ModbusTransport.h"
+#include "../../service/src/DeviceDetection.h"
 #include "../../service/src/DeviceService.h"
 #include "../../service/src/WebSocketService.h"
 #include "ActiveDevice.h"
@@ -48,15 +48,30 @@ void applicationSetup() {
   Serial.begin(115200);
   delay(1000);
 
-  ESP_LOGI(TAG_MAIN, "Starting SerialController: Step 7 (REST API + DeviceService refactor)");
-  Serial.println("\n--- SerialController: Step 7 ---");
+  ESP_LOGI(TAG_MAIN, "Starting SerialController: Step 8 (multi-device auto-detection)");
+  Serial.println("\n--- SerialController: Step 8 ---");
 
-  // Construct the Modbus transport and RidenRD60xx driver.
+  // Construct the Modbus transport, then auto-detect the connected device.
   // ModbusTransport constructor initialises Serial2 and starts the Modbus
-  // task on Core 0.
-  // Java equivalent: DeviceService constructor → detectDevice() → RidenRD60xx
+  // task on Core 0. detectDevice() probes Sinilink → Wuzhi → RD50xx → RD60xx
+  // at primary baud rates first, then secondary baud rates as fallback.
+  // Java equivalent: DeviceService constructor → detectDevice()
   ModbusTransport* transport = new ModbusTransport(RIDEN_RX_PIN, RIDEN_TX_PIN, RIDEN_BAUD);
-  activeDevice = new RidenRD60xx(transport, RIDEN_SLAVE);
+  activeDevice = detectDevice(transport, RIDEN_SLAVE);
+
+  if (activeDevice == nullptr) {
+    // No device found — warn and continue.
+    // Java equivalent: DeviceService logs a warning and continues with
+    // converter = null; poll() and write operations are no-ops until a
+    // device connects. The HTTP server and WebSocket still start normally
+    // so /api/state, /status, and /ws/data remain reachable for diagnostics.
+    ESP_LOGW(TAG_MAIN, "No supported device detected. Server will start without a device.");
+    Serial.println("WARN: No supported device detected. Starting server anyway.");
+  } else {
+    ESP_LOGI(TAG_MAIN, "Device detected: %s %s",
+             activeDevice->getManufacturer() ? activeDevice->getManufacturer() : "?",
+             activeDevice->getDevice() ? activeDevice->getDevice() : "?");
+  }
 
   // Initialize WiFi, construct DeviceService + RestService + WebSocketService,
   // register all routes, and start server.begin() + DeviceService.begin().

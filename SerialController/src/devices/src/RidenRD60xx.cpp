@@ -96,6 +96,37 @@ RidenRD60xx::RidenRD60xx(ModbusTransport* transport, uint8_t slave)
     : ModbusDevice(transport, slave) {
 }
 
+// ---- verifyDevicePresent ----------------------------------------------------
+
+/**
+ * Reads the model ID register (0x0000) and validates against KNOWN_DEVICE_IDS.
+ * Sets manufacturer = "Riden" and device = model name on success.
+ * Returns true if identified.
+ *
+ * Java equivalent: RidenRD60xx#verifyDevicePresent(List<Integer> bauds) inner probe body.
+ */
+bool RidenRD60xx::verifyDevicePresent() {
+  uint16_t rawId = 0;
+  if (!transport->readRegister(slave, RidenRegistersRD60xx::REG_DEVICE_ID, rawId)) {
+    return false;
+  }
+
+  int deviceId = (int)rawId;
+  ESP_LOGD(TAG_RD, "Device ID register (0x0000) raw value: %d", deviceId);
+
+  const char* modelName = lookupDeviceId(deviceId);
+  if (modelName == nullptr) {
+    return false;
+  }
+
+  manufacturer = "Riden";
+  device = modelName;
+
+  ESP_LOGI(TAG_RD, "Detected Riden RD60xx (Model: %s, ID: %d) at slave %d.",
+           modelName, deviceId, slave);
+  return true;
+}
+
 // ---- DC2DCConverter interface — getDevice ----------------------------------
 
 /**

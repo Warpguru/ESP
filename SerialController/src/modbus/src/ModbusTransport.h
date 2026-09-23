@@ -43,6 +43,18 @@ class ModbusTransport {
   bool reconnect();
 
   /**
+   * Changes the baud rate and re-opens Serial2 at the new rate.
+   * Used by DeviceDetection to probe each driver at multiple baud rates without
+   * reconstructing the transport (and re-spawning a new FreeRTOS task).
+   *
+   * Java equivalent: constructing a new ModbusTransport(portName, baud) inside the
+   * verifyDevicePresent() probing loop — C++ reconfigures Serial2 in-place.
+   *
+   * @param baud new baud rate (e.g. ModbusConstants::BAUD_115200)
+   */
+  void setBaud(int baud);
+
+  /**
    * Reads a single 16-bit holding register (function code 0x03).
    *
    * Frame transmitted:

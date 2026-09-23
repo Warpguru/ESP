@@ -43,6 +43,7 @@ typedef enum {
   MB_OP_WRITE_REG,   // single-register write (fc 0x06)
   MB_OP_READ_REGS,   // bulk read             (fc 0x03, count > 1)
   MB_OP_WRITE_REGS,  // bulk write            (fc 0x10)
+  MB_OP_SET_BAUD,    // baud-rate change — Serial2.end()/begin() inside the task
 } ModbusOp;
 
 typedef struct {
@@ -50,6 +51,7 @@ typedef struct {
   uint8_t slave;
   uint16_t startReg;
   uint16_t writeValue;          // MB_OP_WRITE_REG: value to write
+  int newBaud;                  // MB_OP_SET_BAUD: new baud rate
   uint8_t count;                // MB_OP_READ_REGS / MB_OP_WRITE_REGS: register count
   uint16_t writeValues[32];     // MB_OP_WRITE_REGS: values to write (max 32)
   QueueHandle_t responseQueue;  // caller-owned single-slot response queue
@@ -333,6 +335,15 @@ void modbusTransportTask(void* param) {
         case MB_OP_WRITE_REGS:
           resp.success = writeRegisters(req.slave, req.startReg, req.writeValues, req.count);
           break;
+        case MB_OP_SET_BAUD:
+          // Reconfigure Serial2 from inside the task so no other operation
+          // can interleave with Serial2.end() / Serial2.begin().
+          Serial2.end();
+          self->_baud = req.newBaud;
+          Serial2.begin(self->_baud, SERIAL_8N1, self->_rxPin, self->_txPin);
+          ESP_LOGI(TAG_MB, "Serial2 re-opened at %d baud (setBaud via task).", self->_baud);
+          resp.success = true;
+          break;
       }
 
       xQueueSend(req.responseQueue, &resp, portMAX_DELAY);
@@ -355,14 +366,40 @@ ModbusTransport::ModbusTransport(int rxPin, int txPin, int baud)
 /**
  * Closes and re-opens the serial port at the same parameters.
  * Called by ModbusDevice::reconnect() after consecutive poll failures.
+ * Routes through the task queue to avoid racing with readBytes().
  *
  * Java equivalent: ModbusTransport#reconnect
  */
 bool ModbusTransport::reconnect() {
-  Serial2.end();
-  Serial2.begin(_baud, SERIAL_8N1, _rxPin, _txPin);
-  ESP_LOGI(TAG_MB, "Serial2 re-opened at %d baud.", _baud);
+  // Reuse setBaud() with the current baud — this routes through the task
+  // queue, so Serial2.end()/begin() executes inside modbusTransportTask.
+  setBaud(_baud);
+  ESP_LOGI(TAG_MB, "Serial2 reconnected at %d baud.", _baud);
   return true;
+}
+
+/**
+ * Changes the baud rate and re-opens Serial2 at the new rate.
+ * Used by DeviceDetection to probe without reconstructing the transport.
+ *
+ * Java equivalent: new ModbusTransport(portName, baud) inside the
+ * verifyDevicePresent() probing loop — C++ reconfigures in-place.
+ */
+void ModbusTransport::setBaud(int baud) {
+  // Route through the task queue so the baud change is serialised with all
+  // other Serial2 operations — avoids Serial2.end() racing with readBytes().
+  QueueHandle_t respQ = xQueueCreate(1, sizeof(ModbusResponse));
+
+  ModbusRequest req;
+  req.op = MB_OP_SET_BAUD;
+  req.newBaud = baud;
+  req.responseQueue = respQ;
+
+  xQueueSend(static_cast<QueueHandle_t>(_requestQueue), &req, portMAX_DELAY);
+
+  ModbusResponse resp;
+  xQueueReceive(respQ, &resp, pdMS_TO_TICKS(MODBUS_CALL_TIMEOUT_MS));
+  vQueueDelete(respQ);
 }
 
 /**

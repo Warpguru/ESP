@@ -25,8 +25,13 @@ constexpr int BAUD_115200 = 115200;
 /** Default Modbus slave address. */
 constexpr uint8_t SLAVE_ADDRESS_1 = 0x01;
 
-/** Read timeout in milliseconds. */
-constexpr int READ_TIMEOUT_MS = 1000;
+/**
+ * Read timeout in milliseconds.
+ * 200 ms is generous for any supported device — real responses arrive in <50 ms.
+ * Keeping it low is critical during device detection: with 4 drivers × 5 baud
+ * rates, a 1000 ms timeout would make a full scan take ~20 s and trip the TWDT.
+ */
+constexpr int READ_TIMEOUT_MS = 100;
 
 /** Write timeout in milliseconds (0 = non-blocking). */
 constexpr int WRITE_TIMEOUT_MS = 0;
