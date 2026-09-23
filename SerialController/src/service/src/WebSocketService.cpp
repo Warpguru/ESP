@@ -161,20 +161,72 @@ void WebSocketService::onEvent(AsyncWebSocket* server, AsyncWebSocketClient* cli
       //
       // ESP32 deviation: WS_EVT_DATA fires on the lwIP async TCP task (Core 0,
       // high-priority, shared with all WiFi I/O). Blocking here with a Modbus
-      // call would stall the network stack. The parsed command is instead enqueued
-      // into a single-slot queue; Application.cpp drains it on Core 1 where Modbus
-      // calls are safe.
-      //
-      // Step 5 stub: log the payload and respond {"error":"not implemented"}.
-      // Step 6 will parse the JSON, populate a WsCommand, and enqueue it.
-      if (data != nullptr && len > 0) {
-        char buf[257];
-        size_t copy = (len < 256) ? len : 256;
-        memcpy(buf, data, copy);
-        buf[copy] = '\0';
-        ESP_LOGI(TAG_WS, "Client #%u message: %s", client->id(), buf);
+      // call would stall the network stack. Each recognised key is parsed into a
+      // WsCommand and enqueued via xQueueOverwrite (non-blocking, latest wins).
+      // Application.cpp drains the queue on Core 1 where Modbus calls are safe.
+      if (data == nullptr || len == 0) {
+        break;
       }
-      client->text("{\"error\":\"not implemented\"}");
+
+      // Null-terminate for ArduinoJson (stack buffer; 256-byte cap matches typical command size).
+      char buf[257];
+      size_t copy = (len < 256) ? len : 256;
+      memcpy(buf, data, copy);
+      buf[copy] = '\0';
+      ESP_LOGI(TAG_WS, "Client #%u message: %s", client->id(), buf);
+
+      // Parse incoming JSON.
+      // Java equivalent: objectMapper.readValue(msg, Map.class)
+      JsonDocument doc;
+      DeserializationError err = deserializeJson(doc, buf);
+      if (err) {
+        // Java equivalent: logger.warn("Failed to parse WebSocket message: {}", e.getMessage())
+        ESP_LOGW(TAG_WS, "Client #%u malformed JSON: %s", client->id(), err.c_str());
+        break;
+      }
+
+      // Dispatch each recognised key — matches Java onMessage key iteration order.
+      // xQueueOverwrite is used so the latest command always wins if the loop
+      // hasn't drained the previous one yet (single-slot queue).
+      bool dispatched = false;
+
+      if (doc.containsKey(KEY_SET_VOLTAGE)) {
+        WsCommand cmd;
+        cmd.type = WsCommand::SET_VOLTAGE;
+        cmd.value = doc[KEY_SET_VOLTAGE].as<double>();
+        xQueueOverwrite(instance->commandQueue, &cmd);
+        dispatched = true;
+      }
+
+      if (doc.containsKey(KEY_SET_CURRENT)) {
+        WsCommand cmd;
+        cmd.type = WsCommand::SET_CURRENT;
+        cmd.value = doc[KEY_SET_CURRENT].as<double>();
+        xQueueOverwrite(instance->commandQueue, &cmd);
+        dispatched = true;
+      }
+
+      if (doc.containsKey(KEY_SET_OUTPUT)) {
+        WsCommand cmd;
+        cmd.type = WsCommand::SET_OUTPUT;
+        cmd.flag = doc[KEY_SET_OUTPUT].as<bool>();
+        xQueueOverwrite(instance->commandQueue, &cmd);
+        dispatched = true;
+      }
+
+      if (doc.containsKey(KEY_SET_KEYPAD)) {
+        WsCommand cmd;
+        cmd.type = WsCommand::SET_KEYPAD;
+        cmd.flag = doc[KEY_SET_KEYPAD].as<bool>();
+        xQueueOverwrite(instance->commandQueue, &cmd);
+        dispatched = true;
+      }
+
+      // Log unrecognised keys at DEBUG — ignored, connection kept open.
+      // Java equivalent: logger.debug("WebSocket message: unrecognised key '{}' - ignored.")
+      if (!dispatched) {
+        ESP_LOGD(TAG_WS, "Client #%u message contained no recognised keys — ignored.", client->id());
+      }
       break;
     }
 

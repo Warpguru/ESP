@@ -131,25 +131,18 @@ responding" from "no requests have been made yet" in the serial output.
 
 ---
 
-### TODO-6 · No input validation on `/setVoltage` (`Server.ino:67`)
+### ~~TODO-6~~ · ✅ RESOLVED — Input validation on WebSocket setpoints (Step 6)
 
-**Description:** The `v` query parameter is accepted and forwarded to the
-Riden without any range or sanity check:
+**Resolved in Step 6.** Range validation for `setVoltage` and `setCurrent`
+commands is implemented in `Application.cpp` (`applicationLoop`): each value
+is checked against `[0, converterState.getMaxVoltage()]` /
+`[0, converterState.getMaxCurrent()]` before calling `activeDevice->setVoltage`
+/ `activeDevice->setCurrent`. Out-of-range values are rejected with
+`ESP_LOGW` and the device is not written.
 
-```cpp
-float voltageValue = server.arg("v").toFloat();
-uint16_t rawValue = (uint16_t)(voltageValue * 100);
-```
-
-`toFloat()` silently returns `0.0` for non-numeric input (e.g. `?v=abc`).
-Negative values, zero, and values exceeding the power supply's maximum (e.g.
-60 V for typical Riden units, represented as `6000` in the raw centivolt
-register) are all accepted without complaint and written directly to the
-device.
-
-**Fix:** Validate the parsed float against a configurable `[V_MIN, V_MAX]`
-range before converting to the raw register value. Return HTTP 400 with a
-descriptive message for out-of-range or unparseable inputs.
+The legacy `/setVoltage` HTTP endpoint (`Server.cpp`) also delegates to
+`activeDevice->setVoltage()` via the `DC2DCConverter` interface rather than
+writing raw Modbus registers directly.
 
 ---
 

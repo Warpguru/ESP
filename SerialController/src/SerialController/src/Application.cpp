@@ -78,8 +78,8 @@ void applicationSetup() {
   Serial.begin(115200);
   delay(1000);
 
-  ESP_LOGI(TAG_MAIN, "Starting SerialController: Step 5 (WebSocket broadcast)");
-  Serial.println("\n--- SerialController: Step 5 (WebSocket broadcast) ---");
+  ESP_LOGI(TAG_MAIN, "Starting SerialController: Step 6 (WebSocket command handling)");
+  Serial.println("\n--- SerialController: Step 6 (WebSocket command handling) ---");
 
   // Construct the Modbus transport and RidenRD60xx driver.
   // ModbusTransport constructor initialises Serial2 and starts the Modbus task on Core 0.
@@ -104,12 +104,65 @@ void applicationLoop() {
 
   // Drain WebSocket command queue — execute any command the browser sent.
   // Runs on Core 1 (this loop task) which owns the Modbus transport, so
-  // activeDevice->setVoltage() etc. are safe here.
-  // Step 5: queue is created but no commands are dispatched yet (stub in Step 6).
+  // activeDevice calls are safe here without stalling the network stack.
+  // Java equivalent: WebSocketService#onMessage dispatches directly on its thread;
+  // here we dispatch on the loop task via the queue instead.
   WsCommand cmd;
   if (wsService.dequeueCommand(cmd)) {
-    // Step 6 will dispatch cmd.type → activeDevice->setVoltage() etc.
-    ESP_LOGD(TAG_MAIN, "WS command received (type=%d) — dispatching in Step 6.", cmd.type);
+    if (activeDevice == nullptr) {
+      ESP_LOGW(TAG_MAIN, "WS command ignored — activeDevice not ready.");
+    } else {
+      switch (cmd.type) {
+        case WsCommand::SET_VOLTAGE: {
+          // Java equivalent: deviceService.setVoltage(value)
+          // Range validation: reject if outside [0, maxVoltage].
+          // Java equivalent: IllegalArgumentException from DeviceService.setVoltage
+          double maxV = converterState.getMaxVoltage();
+          if (maxV > 0.0 && (cmd.value < 0.0 || cmd.value > maxV)) {
+            ESP_LOGW(TAG_MAIN, "setVoltage %.3f rejected: out of range [0, %.3f]", cmd.value, maxV);
+          } else if (activeDevice->setVoltage(cmd.value)) {
+            converterState.setVoltageSet(cmd.value);
+            ESP_LOGI(TAG_MAIN, "setVoltage %.3f V OK", cmd.value);
+          } else {
+            ESP_LOGW(TAG_MAIN, "setVoltage %.3f V failed (Modbus error)", cmd.value);
+          }
+          break;
+        }
+        case WsCommand::SET_CURRENT: {
+          // Java equivalent: deviceService.setCurrent(value)
+          double maxI = converterState.getMaxCurrent();
+          if (maxI > 0.0 && (cmd.value < 0.0 || cmd.value > maxI)) {
+            ESP_LOGW(TAG_MAIN, "setCurrent %.3f rejected: out of range [0, %.3f]", cmd.value, maxI);
+          } else if (activeDevice->setCurrent(cmd.value)) {
+            converterState.setCurrentSet(cmd.value);
+            ESP_LOGI(TAG_MAIN, "setCurrent %.3f A OK", cmd.value);
+          } else {
+            ESP_LOGW(TAG_MAIN, "setCurrent %.3f A failed (Modbus error)", cmd.value);
+          }
+          break;
+        }
+        case WsCommand::SET_OUTPUT:
+          // Java equivalent: deviceService.setOutput(flag)
+          if (activeDevice->setOutput(cmd.flag)) {
+            converterState.setOutputEnabled(cmd.flag);
+            ESP_LOGI(TAG_MAIN, "setOutput %s OK", cmd.flag ? "ON" : "OFF");
+          } else {
+            ESP_LOGW(TAG_MAIN, "setOutput %s failed (Modbus error)", cmd.flag ? "ON" : "OFF");
+          }
+          break;
+        case WsCommand::SET_KEYPAD:
+          // Java equivalent: deviceService.setKeypad(flag)
+          if (activeDevice->setKeypad(cmd.flag)) {
+            converterState.setKeypadLocked(cmd.flag);
+            ESP_LOGI(TAG_MAIN, "setKeypad %s OK", cmd.flag ? "LOCKED" : "UNLOCKED");
+          } else {
+            ESP_LOGW(TAG_MAIN, "setKeypad %s failed (Modbus error)", cmd.flag ? "LOCKED" : "UNLOCKED");
+          }
+          break;
+        default:
+          break;
+      }
+    }
   }
 
   // Poll all Riden registers every 1 second via a single bulk 0x03 frame,
