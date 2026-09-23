@@ -97,6 +97,9 @@ const ConverterState* DeviceService::getState() const {
  * Deviation: bool return instead of void/throws; mutex instead of synchronized.
  */
 bool DeviceService::setVoltage(double volts) {
+  if (_converter == nullptr) {
+    return false;
+  }
   double maxV = effectiveMaxVoltage();
   if (!validateRange("Voltage", volts, _state->getMinVoltage(), maxV)) {
     return false;
@@ -123,6 +126,9 @@ bool DeviceService::setVoltage(double volts) {
  */
 bool DeviceService::setVoltageVerified(double volts, double& confirmedOut, bool& outConflict) {
   outConflict = false;
+  if (_converter == nullptr) {
+    return false;
+  }
   double maxV = effectiveMaxVoltage();
   if (!validateRange("Voltage", volts, _state->getMinVoltage(), maxV)) {
     return false;
@@ -161,6 +167,9 @@ bool DeviceService::setVoltageVerified(double volts, double& confirmedOut, bool&
  * Java equivalent: DeviceService#setCurrent (synchronized)
  */
 bool DeviceService::setCurrent(double amperes) {
+  if (_converter == nullptr) {
+    return false;
+  }
   double maxI = effectiveMaxCurrent();
   if (!validateRange("Current", amperes, _state->getMinCurrent(), maxI)) {
     return false;
@@ -183,6 +192,9 @@ bool DeviceService::setCurrent(double amperes) {
  */
 bool DeviceService::setCurrentVerified(double amperes, double& confirmedOut, bool& outConflict) {
   outConflict = false;
+  if (_converter == nullptr) {
+    return false;
+  }
   double maxI = effectiveMaxCurrent();
   if (!validateRange("Current", amperes, _state->getMinCurrent(), maxI)) {
     return false;
@@ -223,6 +235,9 @@ bool DeviceService::setCurrentVerified(double amperes, double& confirmedOut, boo
  * Java equivalent: DeviceService#setMeasurements (synchronized)
  */
 bool DeviceService::setVoltageCurrent(double volts, double amperes) {
+  if (_converter == nullptr) {
+    return false;
+  }
   if (!validateRange("Voltage", volts, _state->getMinVoltage(), effectiveMaxVoltage())) {
     return false;
   }
@@ -248,6 +263,9 @@ bool DeviceService::setVoltageCurrent(double volts, double amperes) {
  * Java equivalent: DeviceService#setOutput (synchronized)
  */
 bool DeviceService::setOutput(bool on) {
+  if (_converter == nullptr) {
+    return false;
+  }
   xSemaphoreTake(_mutex, portMAX_DELAY);
   ESP_LOGI(TAG_DS, "Setting output to %s", on ? "ON" : "OFF");
   bool ok = _converter->setOutput(on);
@@ -264,6 +282,9 @@ bool DeviceService::setOutput(bool on) {
  * Java equivalent: DeviceService#setKeypad (synchronized)
  */
 bool DeviceService::setKeypad(bool locked) {
+  if (_converter == nullptr) {
+    return false;
+  }
   xSemaphoreTake(_mutex, portMAX_DELAY);
   ESP_LOGI(TAG_DS, "Setting keypad lock to %s", locked ? "LOCKED" : "UNLOCKED");
   bool ok = _converter->setKeypad(locked);
@@ -280,6 +301,9 @@ bool DeviceService::setKeypad(bool locked) {
  * Java equivalent: DeviceService#clearProtection (synchronized)
  */
 bool DeviceService::clearProtection() {
+  if (_converter == nullptr) {
+    return false;
+  }
   xSemaphoreTake(_mutex, portMAX_DELAY);
   ESP_LOGI(TAG_DS, "Clearing protection state.");
   bool ok = _converter->setProtectionState(false);

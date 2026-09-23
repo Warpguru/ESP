@@ -55,7 +55,11 @@ void WebSocketService::begin() {
 
   // Pass `this` as the task parameter so the static broadcastTask can access
   // instance members (ws, state). Same pattern as ModbusTransport.
-  xTaskCreatePinnedToCore(broadcastTask, "WS_Broadcast", 4096, this, 1, NULL, 0);
+  // Pinned to Core 1 (same as pollingTask and the Arduino loop task) so that
+  // ws->textAll() and cleanupClients() never compete with the WiFi/lwIP stack
+  // and ESPAsyncWebServer TCP callbacks on Core 0.  Running on Core 0 caused
+  // HTTP responses (GET /doc, GET /status) to stall during each 1-second broadcast.
+  xTaskCreatePinnedToCore(broadcastTask, "WS_Broadcast", 4096, this, 1, NULL, 1);
   ESP_LOGI(TAG_WS, "WebSocketService started (endpoint: %s).", ws->url());
 }
 
@@ -95,7 +99,20 @@ void WebSocketService::broadcastTask(void* param) {
     doc["manufacturer"] = self->state->getManufacturer();
     doc["firmwareVersion"] = self->state->getFirmwareVersion();
     doc["deviceOnline"] = self->state->isDeviceOnline();
-    doc["converterTopology"] = (int)self->state->getConverterTopology();
+    // Serialise as the enum name string so the browser JS compares directly against
+    // the TOPOLOGY_BUCK / TOPOLOGY_BOOST / TOPOLOGY_BUCK_BOOST string constants.
+    // Sending an integer breaks the buck voltage-ceiling logic and the amber marker.
+    switch (self->state->getConverterTopology()) {
+      case ConverterTopology::BOOST:
+        doc["converterTopology"] = "BOOST";
+        break;
+      case ConverterTopology::BUCK_BOOST:
+        doc["converterTopology"] = "BUCK_BOOST";
+        break;
+      default:
+        doc["converterTopology"] = "BUCK";
+        break;
+    }
     doc["voltageOut"] = self->state->getVoltageOut();
     doc["currentOut"] = self->state->getCurrentOut();
     doc["powerOut"] = self->state->getPowerOut();

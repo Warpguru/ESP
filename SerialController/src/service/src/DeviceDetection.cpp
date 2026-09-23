@@ -1,7 +1,6 @@
 #include "DeviceDetection.h"
 
 #include <Arduino.h>
-#include <esp_task_wdt.h>
 
 #include "../../devices/src/RidenRD50xx.h"
 #include "../../devices/src/RidenRD60xx.h"
@@ -65,10 +64,13 @@ static DC2DCConverter* probeDrivers(
     int baud = bauds[i];
     ESP_LOGI(TAG_DETECT, "Probing at %d baud...", baud);
 
-    // Each probe attempt blocks for up to READ_TIMEOUT_MS per driver (serial
-    // read timeout in modbusTask). Resetting the Task Watchdog here prevents
-    // the TWDT from firing if the full scan takes longer than its threshold.
-    esp_task_wdt_reset();
+    // Yield for one tick between baud-rate iterations. This keeps the FreeRTOS
+    // scheduler fed during the scan (each iteration may block up to READ_TIMEOUT_MS
+    // per driver) without requiring the calling task to be registered with the TWDT.
+    // esp_task_wdt_reset() was used here previously but caused "task not found"
+    // errors because applicationSetup() runs on the Arduino loop task, which is
+    // not subscribed to the Task Watchdog by default.
+    vTaskDelay(1);
 
     transport->setBaud(baud);
 
