@@ -8,16 +8,18 @@
 #include <esp_system.h>
 
 /**
- * ESPInfo.h - ESP32 Hardware and Diagnostics Information
+ * ESPInfo.h - ESP32 hardware and diagnostics information.
  *
- * Provides helper functions and ArduinoJson serialization for ESP32 diagnostics metrics.
+ * Provides helper functions and ArduinoJson serialisation for ESP32 diagnostics
+ * metrics exposed via GET /status.
+ *
+ * No Java equivalent — this is ESP32-specific platform diagnostics.
+ * The Java application has no /status endpoint; it uses the OS and JVM for
+ * diagnostics (e.g. JVM heap, OS serial port enumeration).
  */
 
 /**
- * Helper: Get Reset Reason as String
- * Note: Diagnostics/Diagnostics.ino retains its own copy of this function. Arduino sketch
- * isolation prevents cross-sketch #include, so the duplication is structural and accepted.
- * ESPInfo.h is the canonical copy for all SerialController code.
+ * Helper: Get Reset Reason as String.
  */
 inline const char* getResetReasonString(esp_reset_reason_t reason) {
   switch (reason) {
@@ -49,10 +51,7 @@ inline const char* getResetReasonString(esp_reset_reason_t reason) {
 }
 
 /**
- * Helper: Get Flash Mode as String
- * Note: Diagnostics/Diagnostics.ino retains its own copy of this function. Arduino sketch
- * isolation prevents cross-sketch #include, so the duplication is structural and accepted.
- * ESPInfo.h is the canonical copy for all SerialController code.
+ * Helper: Get Flash Mode as String.
  */
 inline const char* getFlashModeString(uint32_t mode) {
   switch (mode) {
@@ -71,7 +70,7 @@ inline const char* getFlashModeString(uint32_t mode) {
 
 /**
  * Populates hardware and diagnostic metrics into the provided ArduinoJson JsonObject.
- * Formatted matching all diagnostics collected by Diagnostics.ino.
+ * Called from Server.cpp's GET /status handler.
  */
 inline void fillESPInfo(JsonObject obj) {
   esp_chip_info_t chip_info;
@@ -154,7 +153,6 @@ inline void fillESPInfo(JsonObject obj) {
     snprintf(addrBuf, sizeof(addrBuf), "0x%06X", (unsigned int)p->address);
     part["address"] = addrBuf;
     part["sizeKB"] = (int)p->size / 1024;
-
     it = esp_partition_next(it);
   }
   esp_partition_iterator_release(it);
@@ -162,9 +160,6 @@ inline void fillESPInfo(JsonObject obj) {
   // System & Sensors
   JsonObject system = obj["system"].to<JsonObject>();
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
-  // Assign as a native float — ArduinoJson serializes it correctly, including
-  // edge cases. serialized() is for pre-formed JSON fragments only and would
-  // emit bare unquoted text (e.g. "nan") on NaN, producing invalid JSON.
   system["internalTemperature"] = temperatureRead();
 #else
   system["internalTemperature"] = nullptr;
@@ -176,7 +171,6 @@ inline void fillESPInfo(JsonObject obj) {
   JsonObject network = obj["network"].to<JsonObject>();
   network["efuseMac"] = efuseMacBuf;
   network["staMac"] = WiFi.macAddress();
-  // AP MAC is only valid after softAP is initialized; included for completeness
   network["apMac"] = WiFi.softAPmacAddress();
   if (WiFi.status() == WL_CONNECTED) {
     network["connected"] = true;
