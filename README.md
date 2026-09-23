@@ -110,11 +110,52 @@ The XH2.54-4P 4-pin connector is on the device board.
 > **Note:** Wire colours can vary between manufacturing batches. If in doubt, verify
 > with a multimeter: the TxD line idles **high** (~3.3 V) when no data is transmitted.
 
-### Fault indicator
+### Status LED
 
-| Signal | ESP32 GPIO |
+An external LED on **GPIO 21** is driven exclusively by [`StatusLed`](SerialController/src/SerialController/src/StatusLed.cpp) — a permanent FreeRTOS task that is the **sole owner of GPIO 21**. No other file calls `pinMode()`, `digitalWrite()`, or `digitalRead()` on this pin.
+
+**Wiring:** LED anode → 330 Ω resistor → GPIO 21 · LED cathode → GND.
+
+> The onboard LED (hardwired to GPIO 2) cannot be used for status signalling: the USB-serial bridge chip on the DevKit PCB drives GPIO 2 as an RX activity indicator in hardware, causing it to flicker on every `Serial.println()` regardless of firmware.
+
+| LED state | Meaning |
 |---|---|
-| Onboard LED — SOS blink on WiFi failure | 2 |
+| Steady ON | Booting — WiFi connecting, device detection in progress |
+| Slow blink (1 s on / 1 s off) | Server up, no converter detected |
+| OFF | Fully operational — server up and converter communicating |
+| SOS pattern (· · · — — — · · ·) | Fatal fault — WiFi connection failed, halted |
+
+#### State machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> BOOTING : statusLed.begin()
+
+    BOOTING --> READY : setState(READY)\ndevice found after setupServer()
+    BOOTING --> NO_DEVICE : setState(NO_DEVICE)\nno device found after setupServer()
+    BOOTING --> FAULT : setState(FAULT)\nWiFi connection failed
+
+    NO_DEVICE --> READY : setState(READY)
+    NO_DEVICE --> FAULT : setState(FAULT)
+
+    READY --> NO_DEVICE : setState(NO_DEVICE)
+    READY --> FAULT : setState(FAULT)
+
+    FAULT --> READY : setState(READY)
+    FAULT --> NO_DEVICE : setState(NO_DEVICE)
+```
+
+#### How the task sleeps
+
+The `ledTask` runs a `for(;;)` loop, but every branch ends in a blocking FreeRTOS call — it never spins:
+
+| State | Blocking call | CPU cost |
+|---|---|---|
+| `BOOTING` / `READY` | `ulTaskNotifyTake(portMAX_DELAY)` | Zero — task is removed from the scheduler ready list entirely until `setState()` calls `xTaskNotifyGive()` |
+| `NO_DEVICE` | `ulTaskNotifyTake(1000 ms timeout)` | Zero between toggles — yields for 1 s, or wakes immediately when `setState()` notifies |
+| `FAULT` | `delay()` inside each SOS pulse | Yields via `vTaskDelay()` during every pause; loops back after each full SOS cycle to check for a state change |
+
+`setState()` writes the new state and immediately calls `xTaskNotifyGive()`, which unblocks the task within one scheduler tick (~1 ms) regardless of which core calls it.
 
 ---
 
@@ -487,7 +528,7 @@ applicationSetup()
   │
   └─ setupServer()
        ├─ WiFiManager.autoConnect("SerialController")
-       ├─ [WiFi failure → SOS blink on GPIO 2, halt]
+       ├─ [WiFi failure → statusLed FAULT state (SOS), calling task suspended]
        ├─ new DeviceService(state, activeDevice)
        ├─ RestService.registerRoutes()
        ├─ WebSocketService.begin()       starts broadcastTask on Core 1

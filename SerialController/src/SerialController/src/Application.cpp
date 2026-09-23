@@ -11,6 +11,7 @@
 #include "ConverterStateGlobal.h"
 #include "LogBuffer.h"
 #include "Server.h"
+#include "StatusLed.h"
 
 /**
  * Application.cpp - Main application setup and loop.
@@ -43,6 +44,10 @@ DC2DCConverter* activeDevice = nullptr;
 // ---- applicationSetup ------------------------------------------------------
 
 void applicationSetup() {
+  // Turn the status LED on immediately (BOOTING state) before anything else.
+  // The led task becomes the sole owner of GPIO 2 from this point forward.
+  statusLed.begin();
+
   Serial.begin(115200);
   delay(1000);
 
@@ -78,6 +83,16 @@ void applicationSetup() {
   // register all routes, and start server.begin() + DeviceService.begin().
   // Java equivalent: SerialControllerApplication main() wiring block.
   setupServer();
+
+  // Set final LED state based on whether a device was found.
+  // statusLed.setState(FAULT) is called inside setupServer() on WiFi failure;
+  // if we reach this point WiFi is up and the server is running.
+  if (activeDevice != nullptr) {
+    statusLed.setState(LedState::READY); // OFF — fully operational
+  } else {
+    statusLed.setState(
+        LedState::NO_DEVICE); // slow blink — server up, no device
+  }
 }
 
 // ---- applicationLoop -------------------------------------------------------

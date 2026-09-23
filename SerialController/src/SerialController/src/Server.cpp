@@ -13,6 +13,7 @@
 #include "ConverterStateGlobal.h"
 #include "ESPInfo.h"
 #include "LogBuffer.h"
+#include "StatusLed.h"
 #include "index_html.h"
 #include "openapi_json.h"
 
@@ -31,48 +32,6 @@
  * The ESP32-specific /status and /reset endpoints have no Java equivalent and
  * live here alongside the other platform-specific startup code.
  */
-
-// Onboard LED used for fault signalling (GPIO 2 on ESP32-WROOM-32)
-#define FAULT_LED_PIN 2
-
-/**
- * Blink the onboard LED in an SOS pattern (... --- ...) and halt.
- * Called when a fatal startup condition is detected (e.g. WiFi failure).
- * Never returns.
- *
- * No Java equivalent - on Java a fatal exception terminates the JVM.
- */
-static void haltWithSOS() {
-  pinMode(FAULT_LED_PIN, OUTPUT);
-  const int dot = 150;
-  const int dash = 450;
-  const int gap = 150;
-  const int word = 700;
-
-  for (;;) {
-    for (int i = 0; i < 3; i++) {
-      digitalWrite(FAULT_LED_PIN, HIGH);
-      delay(dot);
-      digitalWrite(FAULT_LED_PIN, LOW);
-      delay(gap);
-    }
-    delay(word);
-    for (int i = 0; i < 3; i++) {
-      digitalWrite(FAULT_LED_PIN, HIGH);
-      delay(dash);
-      digitalWrite(FAULT_LED_PIN, LOW);
-      delay(gap);
-    }
-    delay(word);
-    for (int i = 0; i < 3; i++) {
-      digitalWrite(FAULT_LED_PIN, HIGH);
-      delay(dot);
-      digitalWrite(FAULT_LED_PIN, LOW);
-      delay(gap);
-    }
-    delay(2000);
-  }
-}
 
 // HTTP status codes
 #define HTTP_CODE_OK 200
@@ -385,7 +344,8 @@ void setupServer() {
   Log_info("Initializing WiFiManager...");
   if (!wm.autoConnect("SerialController")) {
     Log_error("WiFi Connection Failed! Halting with SOS signal.");
-    haltWithSOS();
+    statusLed.setState(LedState::FAULT);
+    vTaskSuspend(NULL);  // suspend the calling task; ledTask drives SOS forever
   }
   Log_info("WiFi Connected! IP: %s", WiFi.localIP().toString().c_str());
 
