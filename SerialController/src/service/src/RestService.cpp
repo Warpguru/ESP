@@ -2,7 +2,7 @@
 
 #include <ArduinoJson.h>
 
-#include "esp_log.h"
+#include "../../../src/SerialController/src/LogBuffer.h"
 
 /**
  * RestService.cpp - RESTful HTTP API for the converter.
@@ -12,8 +12,6 @@
  * All handlers read state via _deviceService->getState() and delegate writes
  * to _deviceService validated methods - matching the Java layering exactly.
  */
-
-static const char* TAG_RS = "REST";
 
 // HTTP status code constants
 static constexpr int HTTP_OK = 200;
@@ -104,7 +102,7 @@ void RestService::registerRoutes() {
   _server->on("/api/protection/clear", AsyncWebRequestMethod::HTTP_POST,
               [this](AsyncWebServerRequest* r) { handlePostProtectionClear(r); });
 
-  ESP_LOGI(TAG_RS, "REST routes registered.");
+  Log_info("REST routes registered.");
 }
 
 // ---- GET /api/state --------------------------------------------------------
@@ -113,7 +111,7 @@ void RestService::registerRoutes() {
  * Java equivalent: RestService#getState
  */
 void RestService::handleGetState(AsyncWebServerRequest* request) {
-  ESP_LOGI(TAG_RS, "GET /api/state");
+  Log_info("GET /api/state");
   const ConverterState* s = _deviceService->getState();
   JsonDocument doc;
   doc["deviceName"] = s->getDeviceName();
@@ -150,7 +148,7 @@ void RestService::handleGetState(AsyncWebServerRequest* request) {
  * Java equivalent: RestService#getLimits
  */
 void RestService::handleGetLimits(AsyncWebServerRequest* request) {
-  ESP_LOGI(TAG_RS, "GET /api/limits");
+  Log_info("GET /api/limits");
   const ConverterState* s = _deviceService->getState();
   JsonDocument doc;
   doc["manufacturer"] = s->getManufacturer();
@@ -171,7 +169,7 @@ void RestService::handleGetLimits(AsyncWebServerRequest* request) {
  * Java equivalent: RestService#getMeasurements
  */
 void RestService::handleGetMeasurements(AsyncWebServerRequest* request) {
-  ESP_LOGI(TAG_RS, "GET /api/measurements");
+  Log_info("GET /api/measurements");
   const ConverterState* s = _deviceService->getState();
   JsonDocument doc;
   doc["voltage"] = s->getVoltageOut();
@@ -188,7 +186,7 @@ void RestService::handleGetMeasurements(AsyncWebServerRequest* request) {
  * Java equivalent: RestService#getVoltage
  */
 void RestService::handleGetVoltage(AsyncWebServerRequest* request) {
-  ESP_LOGI(TAG_RS, "GET /api/voltage");
+  Log_info("GET /api/voltage");
   JsonDocument doc;
   doc["voltage"] = _deviceService->getState()->getVoltageOut();
   String json;
@@ -202,7 +200,7 @@ void RestService::handleGetVoltage(AsyncWebServerRequest* request) {
  * Java equivalent: RestService#getCurrent
  */
 void RestService::handleGetCurrent(AsyncWebServerRequest* request) {
-  ESP_LOGI(TAG_RS, "GET /api/current");
+  Log_info("GET /api/current");
   JsonDocument doc;
   doc["current"] = _deviceService->getState()->getCurrentOut();
   String json;
@@ -216,7 +214,7 @@ void RestService::handleGetCurrent(AsyncWebServerRequest* request) {
  * Java equivalent: RestService#getPower
  */
 void RestService::handleGetPower(AsyncWebServerRequest* request) {
-  ESP_LOGI(TAG_RS, "GET /api/power");
+  Log_info("GET /api/power");
   JsonDocument doc;
   doc["power"] = _deviceService->getState()->getPowerOut();
   String json;
@@ -230,7 +228,7 @@ void RestService::handleGetPower(AsyncWebServerRequest* request) {
  * Java equivalent: RestService#setMeasurements → DeviceService#setMeasurements
  */
 void RestService::handlePutMeasurements(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t, size_t) {
-  ESP_LOGI(TAG_RS, "PUT /api/measurements");
+  Log_info("PUT /api/measurements");
   if (!_deviceService->isDeviceDetected()) {
     request->send(HTTP_SERVICE_UNAVAILABLE, "text/plain", "No device connected");
     return;
@@ -256,7 +254,7 @@ void RestService::handlePutMeasurements(AsyncWebServerRequest* request, uint8_t*
  * Java equivalent: RestService#setVoltage → DeviceService#setVoltage
  */
 void RestService::handlePutVoltage(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t, size_t) {
-  ESP_LOGI(TAG_RS, "PUT /api/voltage");
+  Log_info("PUT /api/voltage");
   if (!_deviceService->isDeviceDetected()) {
     request->send(HTTP_SERVICE_UNAVAILABLE, "text/plain", "No device connected");
     return;
@@ -281,7 +279,7 @@ void RestService::handlePutVoltage(AsyncWebServerRequest* request, uint8_t* data
  * Java equivalent: RestService#setVoltageVerified → DeviceService#setVoltageVerified
  */
 void RestService::handlePutVoltageVerified(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t, size_t) {
-  ESP_LOGI(TAG_RS, "PUT /api/voltage/verified");
+  Log_info("PUT /api/voltage/verified");
   if (!_deviceService->isDeviceDetected()) {
     request->send(HTTP_SERVICE_UNAVAILABLE, "text/plain", "No device connected");
     return;
@@ -316,7 +314,7 @@ void RestService::handlePutVoltageVerified(AsyncWebServerRequest* request, uint8
  * Java equivalent: RestService#setCurrent → DeviceService#setCurrent
  */
 void RestService::handlePutCurrent(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t, size_t) {
-  ESP_LOGI(TAG_RS, "PUT /api/current");
+  Log_info("PUT /api/current");
   if (!_deviceService->isDeviceDetected()) {
     request->send(HTTP_SERVICE_UNAVAILABLE, "text/plain", "No device connected");
     return;
@@ -341,7 +339,7 @@ void RestService::handlePutCurrent(AsyncWebServerRequest* request, uint8_t* data
  * Java equivalent: RestService#setCurrentVerified → DeviceService#setCurrentVerified
  */
 void RestService::handlePutCurrentVerified(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t, size_t) {
-  ESP_LOGI(TAG_RS, "PUT /api/current/verified");
+  Log_info("PUT /api/current/verified");
   if (!_deviceService->isDeviceDetected()) {
     request->send(HTTP_SERVICE_UNAVAILABLE, "text/plain", "No device connected");
     return;
@@ -376,7 +374,7 @@ void RestService::handlePutCurrentVerified(AsyncWebServerRequest* request, uint8
  * Java equivalent: RestService#setOutput → DeviceService#setOutput
  */
 void RestService::handlePutOutput(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t, size_t) {
-  ESP_LOGI(TAG_RS, "PUT /api/output");
+  Log_info("PUT /api/output");
   if (!_deviceService->isDeviceDetected()) {
     request->send(HTTP_SERVICE_UNAVAILABLE, "text/plain", "No device connected");
     return;
@@ -401,7 +399,7 @@ void RestService::handlePutOutput(AsyncWebServerRequest* request, uint8_t* data,
  * Java equivalent: RestService#setKeypad → DeviceService#setKeypad
  */
 void RestService::handlePutKeypad(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t, size_t) {
-  ESP_LOGI(TAG_RS, "PUT /api/keypad");
+  Log_info("PUT /api/keypad");
   if (!_deviceService->isDeviceDetected()) {
     request->send(HTTP_SERVICE_UNAVAILABLE, "text/plain", "No device connected");
     return;
@@ -426,7 +424,7 @@ void RestService::handlePutKeypad(AsyncWebServerRequest* request, uint8_t* data,
  * Java equivalent: RestService#clearProtection → DeviceService#clearProtection
  */
 void RestService::handlePostProtectionClear(AsyncWebServerRequest* request) {
-  ESP_LOGI(TAG_RS, "POST /api/protection/clear");
+  Log_info("POST /api/protection/clear");
   if (!_deviceService->isDeviceDetected()) {
     request->send(HTTP_SERVICE_UNAVAILABLE, "text/plain", "No device connected");
     return;

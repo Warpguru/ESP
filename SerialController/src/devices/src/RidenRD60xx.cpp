@@ -2,16 +2,14 @@
 
 #include <Arduino.h>
 
+#include "../../../src/SerialController/src/LogBuffer.h"
 #include "../../modbus/src/ModbusConstants.h"
-#include "esp_log.h"
 
 /**
  * RidenRD60xx.cpp - Driver for Riden RD60xx series DC/DC converters.
  *
  * Java equivalent: com.serial.devices.RidenRD60xx
  */
-
-static const char* TAG_RD = "RD60XX";
 
 // ---- Static DeviceRegister descriptors -------------------------------------
 // Java equivalent: public static final DeviceRegister fields in RidenRD60xx.java
@@ -112,7 +110,7 @@ bool RidenRD60xx::verifyDevicePresent() {
   }
 
   int deviceId = (int)rawId;
-  ESP_LOGD(TAG_RD, "Device ID register (0x0000) raw value: %d", deviceId);
+  Log_debug("Device ID register (0x0000) raw value: %d", deviceId);
 
   const char* modelName = lookupDeviceId(deviceId);
   if (modelName == nullptr) {
@@ -122,7 +120,7 @@ bool RidenRD60xx::verifyDevicePresent() {
   manufacturer = "Riden";
   device = modelName;
 
-  ESP_LOGI(TAG_RD, "Detected Riden RD60xx (Model: %s, ID: %d) at slave %d.",
+  Log_info("Detected Riden RD60xx (Model: %s, ID: %d) at slave %d.",
            modelName, deviceId, slave);
   return true;
 }
@@ -200,7 +198,7 @@ bool RidenRD60xx::pollAll() {
     if (modelName != nullptr) {
       manufacturer = "Riden";
       device = modelName;
-      ESP_LOGI(TAG_RD, "Detected Riden RD60xx (Model: %s, ID: %d, FW: %d) at slave %d.",
+      Log_info("Detected Riden RD60xx (Model: %s, ID: %d, FW: %d) at slave %d.",
                device, cacheDeviceId, cacheFirmwareRaw, slave);
     }
   }

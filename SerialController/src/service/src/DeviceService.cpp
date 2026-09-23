@@ -3,15 +3,13 @@
 #include <Arduino.h>
 #include <freertos/task.h>
 
-#include "esp_log.h"
+#include "../../../src/SerialController/src/LogBuffer.h"
 
 /**
  * DeviceService.cpp - Service layer for device polling and validated setpoint writes.
  *
  * Java equivalent: com.serial.service.DeviceService
  */
-
-static const char* TAG_DS = "DEVICE_SVC";
 
 /** Polling interval - Java equivalent: POLL_INTERVAL_MS = 1000. */
 static constexpr uint32_t POLL_INTERVAL_MS = 1000;
@@ -70,7 +68,7 @@ DeviceService::DeviceService(ConverterState* state, DC2DCConverter* converter)
  */
 void DeviceService::begin() {
   xTaskCreatePinnedToCore(pollingTask, "DeviceService_Poll", 4096, this, 2, NULL, 1);
-  ESP_LOGI(TAG_DS, "DeviceService polling task started on Core 1.");
+  Log_info("DeviceService polling task started on Core 1.");
 }
 
 // ---- isDeviceDetected ------------------------------------------------------
@@ -105,7 +103,7 @@ bool DeviceService::setVoltage(double volts) {
     return false;
   }
   xSemaphoreTake(_mutex, portMAX_DELAY);
-  ESP_LOGI(TAG_DS, "Setting voltage to %.3f V", volts);
+  Log_info("Setting voltage to %.3f V", volts);
   bool ok = _converter->setVoltage(volts);
   if (ok) {
     _state->setVoltageSet(volts);
@@ -134,7 +132,7 @@ bool DeviceService::setVoltageVerified(double volts, double& confirmedOut, bool&
     return false;
   }
   xSemaphoreTake(_mutex, portMAX_DELAY);
-  ESP_LOGI(TAG_DS, "setVoltageVerified: writing %.3f V", volts);
+  Log_info("setVoltageVerified: writing %.3f V", volts);
   bool ok = _converter->setVoltage(volts);
   if (!ok) {
     xSemaphoreGive(_mutex);
@@ -144,17 +142,17 @@ bool DeviceService::setVoltageVerified(double volts, double& confirmedOut, bool&
   vTaskDelay(pdMS_TO_TICKS(VERIFIED_READBACK_DELAY_MS));
   double confirmed = _converter->getVoltageSetVerified();
   if (fabs(confirmed - volts) > VERIFIED_TOLERANCE) {
-    ESP_LOGD(TAG_DS, "setVoltageVerified: first read-back %.3f, retrying", confirmed);
+    Log_debug("setVoltageVerified: first read-back %.3f, retrying", confirmed);
     vTaskDelay(pdMS_TO_TICKS(VERIFIED_READBACK_DELAY_MS));
     confirmed = _converter->getVoltageSetVerified();
     if (fabs(confirmed - volts) > VERIFIED_TOLERANCE) {
-      ESP_LOGW(TAG_DS, "setVoltageVerified: device did not accept %.3f V (read back %.3f V)", volts, confirmed);
+      Log_warn("setVoltageVerified: device did not accept %.3f V (read back %.3f V)", volts, confirmed);
       outConflict = true;
       xSemaphoreGive(_mutex);
       return false;
     }
   }
-  ESP_LOGI(TAG_DS, "setVoltageVerified: confirmed %.3f V", confirmed);
+  Log_info("setVoltageVerified: confirmed %.3f V", confirmed);
   _state->setVoltageSet(confirmed);
   confirmedOut = confirmed;
   xSemaphoreGive(_mutex);
@@ -175,7 +173,7 @@ bool DeviceService::setCurrent(double amperes) {
     return false;
   }
   xSemaphoreTake(_mutex, portMAX_DELAY);
-  ESP_LOGI(TAG_DS, "Setting current to %.3f A", amperes);
+  Log_info("Setting current to %.3f A", amperes);
   bool ok = _converter->setCurrent(amperes);
   if (ok) {
     _state->setCurrentSet(amperes);
@@ -200,7 +198,7 @@ bool DeviceService::setCurrentVerified(double amperes, double& confirmedOut, boo
     return false;
   }
   xSemaphoreTake(_mutex, portMAX_DELAY);
-  ESP_LOGI(TAG_DS, "setCurrentVerified: writing %.3f A", amperes);
+  Log_info("setCurrentVerified: writing %.3f A", amperes);
   bool ok = _converter->setCurrent(amperes);
   if (!ok) {
     xSemaphoreGive(_mutex);
@@ -210,17 +208,17 @@ bool DeviceService::setCurrentVerified(double amperes, double& confirmedOut, boo
   vTaskDelay(pdMS_TO_TICKS(VERIFIED_READBACK_DELAY_MS));
   double confirmed = _converter->getCurrentSetVerified();
   if (fabs(confirmed - amperes) > VERIFIED_TOLERANCE) {
-    ESP_LOGD(TAG_DS, "setCurrentVerified: first read-back %.3f, retrying", confirmed);
+    Log_debug("setCurrentVerified: first read-back %.3f, retrying", confirmed);
     vTaskDelay(pdMS_TO_TICKS(VERIFIED_READBACK_DELAY_MS));
     confirmed = _converter->getCurrentSetVerified();
     if (fabs(confirmed - amperes) > VERIFIED_TOLERANCE) {
-      ESP_LOGW(TAG_DS, "setCurrentVerified: device did not accept %.3f A (read back %.3f A)", amperes, confirmed);
+      Log_warn("setCurrentVerified: device did not accept %.3f A (read back %.3f A)", amperes, confirmed);
       outConflict = true;
       xSemaphoreGive(_mutex);
       return false;
     }
   }
-  ESP_LOGI(TAG_DS, "setCurrentVerified: confirmed %.3f A", confirmed);
+  Log_info("setCurrentVerified: confirmed %.3f A", confirmed);
   _state->setCurrentSet(confirmed);
   confirmedOut = confirmed;
   xSemaphoreGive(_mutex);
@@ -245,7 +243,7 @@ bool DeviceService::setVoltageCurrent(double volts, double amperes) {
     return false;
   }
   xSemaphoreTake(_mutex, portMAX_DELAY);
-  ESP_LOGI(TAG_DS, "Setting voltage %.3f V and current %.3f A (atomic)", volts, amperes);
+  Log_info("Setting voltage %.3f V and current %.3f A (atomic)", volts, amperes);
   bool ok = _converter->setVoltageCurrent(volts, amperes);
   if (ok) {
     _state->setVoltageSet(volts);
@@ -267,7 +265,7 @@ bool DeviceService::setOutput(bool on) {
     return false;
   }
   xSemaphoreTake(_mutex, portMAX_DELAY);
-  ESP_LOGI(TAG_DS, "Setting output to %s", on ? "ON" : "OFF");
+  Log_info("Setting output to %s", on ? "ON" : "OFF");
   bool ok = _converter->setOutput(on);
   if (ok) {
     _state->setOutputEnabled(on);
@@ -286,7 +284,7 @@ bool DeviceService::setKeypad(bool locked) {
     return false;
   }
   xSemaphoreTake(_mutex, portMAX_DELAY);
-  ESP_LOGI(TAG_DS, "Setting keypad lock to %s", locked ? "LOCKED" : "UNLOCKED");
+  Log_info("Setting keypad lock to %s", locked ? "LOCKED" : "UNLOCKED");
   bool ok = _converter->setKeypad(locked);
   if (ok) {
     _state->setKeypadLocked(locked);
@@ -305,7 +303,7 @@ bool DeviceService::clearProtection() {
     return false;
   }
   xSemaphoreTake(_mutex, portMAX_DELAY);
-  ESP_LOGI(TAG_DS, "Clearing protection state.");
+  Log_info("Clearing protection state.");
   bool ok = _converter->setProtectionState(false);
   if (ok) {
     _state->setProtectionState(0);
@@ -387,7 +385,7 @@ void DeviceService::poll() {
     if (!_state->isDeviceOnline()) {
       if (consecutiveSuccesses >= MAX_CONSECUTIVE_SUCCESSES) {
         consecutiveSuccesses = 0;
-        ESP_LOGI(TAG_DS, "Device communication restored - marking Online.");
+        Log_info("Device communication restored - marking Online.");
         _state->setDeviceOnline(true);
       }
     } else {
@@ -397,7 +395,7 @@ void DeviceService::poll() {
   } else {
     consecutiveSuccesses = 0;
     consecutiveFailures++;
-    ESP_LOGW(TAG_DS, "Poll cycle failed (%d/%d).", consecutiveFailures, MAX_CONSECUTIVE_FAILURES);
+    Log_warn("Poll cycle failed (%d/%d).", consecutiveFailures, MAX_CONSECUTIVE_FAILURES);
 
     if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
       _state->setDeviceOnline(false);
@@ -419,11 +417,11 @@ void DeviceService::poll() {
  * Java equivalent: DeviceService#attemptReconnect
  */
 void DeviceService::attemptReconnect() {
-  ESP_LOGW(TAG_DS, "Attempting serial port reconnect.");
+  Log_warn("Attempting serial port reconnect.");
   if (_converter->reconnect()) {
-    ESP_LOGI(TAG_DS, "Serial port reconnect succeeded.");
+    Log_info("Serial port reconnect succeeded.");
   } else {
-    ESP_LOGW(TAG_DS, "Serial port reconnect failed.");
+    Log_warn("Serial port reconnect failed.");
   }
 }
 
@@ -471,7 +469,7 @@ double DeviceService::effectiveMaxCurrent() const {
  */
 bool DeviceService::validateRange(const char* name, double value, double min, double max) {
   if (value < min || value > max) {
-    ESP_LOGW(TAG_DS, "%s out of range: %.3f (min=%.3f, max=%.3f)", name, value, min, max);
+    Log_warn("%s out of range: %.3f (min=%.3f, max=%.3f)", name, value, min, max);
     return false;
   }
   return true;

@@ -2,12 +2,12 @@
 
 #include <Arduino.h>
 
+#include "../../../src/SerialController/src/LogBuffer.h"
 #include "../../devices/src/RidenRD50xx.h"
 #include "../../devices/src/RidenRD60xx.h"
 #include "../../devices/src/Sinilink.h"
 #include "../../devices/src/Wuzhi.h"
 #include "../../modbus/src/ModbusConstants.h"
-#include "esp_log.h"
 
 /**
  * DeviceDetection.cpp - Auto-detects the connected DC/DC converter.
@@ -19,8 +19,6 @@
  * reconfigures the existing Serial2 port via ModbusTransport::setBaud() to
  * avoid spawning a new FreeRTOS task on every probe iteration.
  */
-
-static const char* TAG_DETECT = "DETECT";
 
 // ---- Primary baud rates (Java: ModbusTransport.PRIMARY_BAUDS) ---------------
 // 115200 and 9600 - detect >99% of devices in <2 s.
@@ -62,7 +60,7 @@ static DC2DCConverter* probeDrivers(
     int baudCount) {
   for (int i = 0; i < baudCount; i++) {
     int baud = bauds[i];
-    ESP_LOGI(TAG_DETECT, "Probing at %d baud...", baud);
+    Log_info("Probing at %d baud...", baud);
 
     // Yield for one tick between baud-rate iterations. This keeps the FreeRTOS
     // scheduler fed during the scan (each iteration may block up to READ_TIMEOUT_MS
@@ -79,7 +77,7 @@ static DC2DCConverter* probeDrivers(
     {
       Sinilink* sinilink = new Sinilink(transport, slave);
       if (sinilink->verifyDevicePresent()) {
-        ESP_LOGI(TAG_DETECT, "Detected: %s %s at %d baud",
+        Log_info("Detected: %s %s at %d baud",
                  sinilink->getManufacturer(), sinilink->getDevice(), baud);
         return sinilink;
       }
@@ -91,7 +89,7 @@ static DC2DCConverter* probeDrivers(
     {
       Wuzhi* wuzhi = new Wuzhi(transport, slave);
       if (wuzhi->verifyDevicePresent()) {
-        ESP_LOGI(TAG_DETECT, "Detected: %s %s at %d baud",
+        Log_info("Detected: %s %s at %d baud",
                  wuzhi->getManufacturer(), wuzhi->getDevice(), baud);
         return wuzhi;
       }
@@ -103,7 +101,7 @@ static DC2DCConverter* probeDrivers(
     {
       RidenRD50xx* rd50xx = new RidenRD50xx(transport, slave);
       if (rd50xx->verifyDevicePresent()) {
-        ESP_LOGI(TAG_DETECT, "Detected: %s %s at %d baud",
+        Log_info("Detected: %s %s at %d baud",
                  rd50xx->getManufacturer(), rd50xx->getDevice(), baud);
         return rd50xx;
       }
@@ -115,7 +113,7 @@ static DC2DCConverter* probeDrivers(
     {
       RidenRD60xx* rd60xx = new RidenRD60xx(transport, slave);
       if (rd60xx->verifyDevicePresent()) {
-        ESP_LOGI(TAG_DETECT, "Detected: %s %s at %d baud",
+        Log_info("Detected: %s %s at %d baud",
                  rd60xx->getManufacturer(), rd60xx->getDevice(), baud);
         return rd60xx;
       }
@@ -134,11 +132,11 @@ static DC2DCConverter* probeDrivers(
  * Java equivalent: DeviceService#detectDevice(portName)
  */
 DC2DCConverter* detectDevice(ModbusTransport* transport, uint8_t slave) {
-  ESP_LOGI(TAG_DETECT, "Starting device detection.");
+  Log_info("Starting device detection.");
 
   // Pass 1: primary baud rates (115200, 9600).
   // Java: probeDrivers(portName, ModbusTransport.PRIMARY_BAUDS)
-  ESP_LOGI(TAG_DETECT, "Probing primary baud rates (115200, 9600)...");
+  Log_info("Probing primary baud rates (115200, 9600)...");
   DC2DCConverter* found = probeDrivers(transport, slave, PRIMARY_BAUDS, PRIMARY_BAUDS_COUNT);
   if (found != nullptr) {
     return found;
@@ -146,12 +144,12 @@ DC2DCConverter* detectDevice(ModbusTransport* transport, uint8_t slave) {
 
   // Pass 2: secondary / fallback baud rates (19200, 38400, 57600).
   // Java: probeDrivers(portName, ModbusTransport.SECONDARY_BAUDS)
-  ESP_LOGI(TAG_DETECT, "No device found in primary pass. Probing fallback baud rates (19200, 38400, 57600)...");
+  Log_info("No device found in primary pass. Probing fallback baud rates (19200, 38400, 57600)...");
   found = probeDrivers(transport, slave, SECONDARY_BAUDS, SECONDARY_BAUDS_COUNT);
   if (found != nullptr) {
     return found;
   }
 
-  ESP_LOGW(TAG_DETECT, "No supported device detected.");
+  Log_warn("No supported device detected.");
   return nullptr;
 }

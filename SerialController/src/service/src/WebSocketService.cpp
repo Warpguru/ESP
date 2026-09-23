@@ -4,15 +4,13 @@
 #include <ArduinoJson.h>
 #include <freertos/task.h>
 
-#include "esp_log.h"
+#include "../../../src/SerialController/src/LogBuffer.h"
 
 /**
  * WebSocketService.cpp - WebSocket broadcast and command-receive service.
  *
  * Java equivalent: com.serial.service.WebSocketService
  */
-
-static const char* TAG_WS = "WS";
 
 /** Broadcast interval in milliseconds. Java equivalent: BROADCAST_INTERVAL_MS = 1000. */
 static constexpr int BROADCAST_INTERVAL_MS = 1000;
@@ -60,7 +58,7 @@ void WebSocketService::begin() {
   // and ESPAsyncWebServer TCP callbacks on Core 0.  Running on Core 0 caused
   // HTTP responses (GET /doc, GET /status) to stall during each 1-second broadcast.
   xTaskCreatePinnedToCore(broadcastTask, "WS_Broadcast", 4096, this, 1, NULL, 1);
-  ESP_LOGI(TAG_WS, "WebSocketService started (endpoint: %s).", ws->url());
+  Log_info("WebSocketService started (endpoint: %s).", ws->url());
 }
 
 // ---- dequeueCommand --------------------------------------------------------
@@ -159,18 +157,18 @@ void WebSocketService::onEvent(AsyncWebSocket* server, AsyncWebSocketClient* cli
   switch (type) {
     case WS_EVT_CONNECT:
       // Java equivalent: WebSocketService#onConnect - add client to set, log.
-      ESP_LOGI(TAG_WS, "Client #%u connected from %s",
+      Log_info("Client #%u connected from %s",
                client->id(), client->remoteIP().toString().c_str());
       break;
 
     case WS_EVT_DISCONNECT:
       // Java equivalent: WebSocketService#onClose - remove client from set, log.
-      ESP_LOGI(TAG_WS, "Client #%u disconnected.", client->id());
+      Log_info("Client #%u disconnected.", client->id());
       break;
 
     case WS_EVT_ERROR:
       // Java equivalent: WebSocketService#onError - normal on peer disconnect.
-      ESP_LOGW(TAG_WS, "Client #%u error.", client->id());
+      Log_warn("Client #%u error.", client->id());
       break;
 
     case WS_EVT_DATA: {
@@ -190,7 +188,7 @@ void WebSocketService::onEvent(AsyncWebSocket* server, AsyncWebSocketClient* cli
       size_t copy = (len < 256) ? len : 256;
       memcpy(buf, data, copy);
       buf[copy] = '\0';
-      ESP_LOGI(TAG_WS, "Client #%u message: %s", client->id(), buf);
+      Log_info("Client #%u message: %s", client->id(), buf);
 
       // Parse incoming JSON.
       // Java equivalent: objectMapper.readValue(msg, Map.class)
@@ -198,7 +196,7 @@ void WebSocketService::onEvent(AsyncWebSocket* server, AsyncWebSocketClient* cli
       DeserializationError err = deserializeJson(doc, buf);
       if (err) {
         // Java equivalent: logger.warn("Failed to parse WebSocket message: {}", e.getMessage())
-        ESP_LOGW(TAG_WS, "Client #%u malformed JSON: %s", client->id(), err.c_str());
+        Log_warn("Client #%u malformed JSON: %s", client->id(), err.c_str());
         break;
       }
 
@@ -242,7 +240,7 @@ void WebSocketService::onEvent(AsyncWebSocket* server, AsyncWebSocketClient* cli
       // Log unrecognised keys at DEBUG - ignored, connection kept open.
       // Java equivalent: logger.debug("WebSocket message: unrecognised key '{}' - ignored.")
       if (!dispatched) {
-        ESP_LOGD(TAG_WS, "Client #%u message contained no recognised keys - ignored.", client->id());
+        Log_debug("Client #%u message contained no recognised keys - ignored.", client->id());
       }
       break;
     }

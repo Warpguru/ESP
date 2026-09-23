@@ -5,10 +5,10 @@
 #include <freertos/queue.h>
 #include <freertos/task.h>
 
+#include "../../../src/SerialController/src/LogBuffer.h"
 #include "ModbusCRC.h"
 #include "ModbusConstants.h"
 #include "ModbusFunctionCodes.h"
-#include "esp_log.h"
 
 /**
  * ModbusTransport.cpp - Low-level Modbus RTU serial framing and transport.
@@ -27,8 +27,6 @@
  *   - bool return instead of throws (no C++ exceptions on ESP32)
  *   - output values via reference / pointer parameters
  */
-
-static const char* TAG_MB = "MODBUS";
 
 // How long a caller waits for the Modbus task to respond (ms).
 static constexpr uint32_t MODBUS_CALL_TIMEOUT_MS = 1500;
@@ -76,7 +74,7 @@ static bool readBytes(uint8_t* buf, int n) {
   int pos = 0;
   while (pos < n) {
     if (millis() - start >= (uint32_t)ModbusConstants::READ_TIMEOUT_MS) {
-      ESP_LOGE(TAG_MB, "Serial timeout: expected %d bytes, got %d", n, pos);
+      Log_error("Serial timeout: expected %d bytes, got %d", n, pos);
       return false;
     }
     if (Serial2.available()) {
@@ -99,7 +97,7 @@ static bool verifyCRC(const uint8_t* frame, int length) {
   uint16_t calc = ModbusCRC::calculate(frame, (uint8_t)(length - 2));
   uint16_t received = (uint16_t)frame[length - 2] | ((uint16_t)frame[length - 1] << 8);
   if (calc != received) {
-    ESP_LOGE(TAG_MB, "CRC mismatch: calc=0x%04X received=0x%04X", calc, received);
+    Log_error("CRC mismatch: calc=0x%04X received=0x%04X", calc, received);
     return false;
   }
   return true;
@@ -118,16 +116,16 @@ static bool verifyCRC(const uint8_t* frame, int length) {
  */
 static bool verifyResponseHeader(const uint8_t* resp, uint8_t slave, uint8_t expectedByteCount) {
   if (resp[0] != slave) {
-    ESP_LOGE(TAG_MB, "Unexpected slave: expected 0x%02X, got 0x%02X", slave, resp[0]);
+    Log_error("Unexpected slave: expected 0x%02X, got 0x%02X", slave, resp[0]);
     return false;
   }
   if (resp[1] != ModbusFunctionCodes::READ_HOLDING_REGISTERS) {
-    ESP_LOGE(TAG_MB, "Unexpected FC: expected 0x%02X, got 0x%02X",
-             ModbusFunctionCodes::READ_HOLDING_REGISTERS, resp[1]);
+    Log_error("Unexpected FC: expected 0x%02X, got 0x%02X",
+              ModbusFunctionCodes::READ_HOLDING_REGISTERS, resp[1]);
     return false;
   }
   if (resp[2] != expectedByteCount) {
-    ESP_LOGE(TAG_MB, "Unexpected byte count: expected %d, got %d", expectedByteCount, resp[2]);
+    Log_error("Unexpected byte count: expected %d, got %d", expectedByteCount, resp[2]);
     return false;
   }
   return true;
@@ -341,7 +339,7 @@ void modbusTransportTask(void* param) {
           Serial2.end();
           self->_baud = req.newBaud;
           Serial2.begin(self->_baud, SERIAL_8N1, self->_rxPin, self->_txPin);
-          ESP_LOGI(TAG_MB, "Serial2 re-opened at %d baud (setBaud via task).", self->_baud);
+          Log_info("Serial2 re-opened at %d baud (setBaud via task).", self->_baud);
           resp.success = true;
           break;
       }
@@ -356,11 +354,11 @@ void modbusTransportTask(void* param) {
 ModbusTransport::ModbusTransport(int rxPin, int txPin, int baud)
     : _rxPin(rxPin), _txPin(txPin), _baud(baud) {
   Serial2.begin(_baud, SERIAL_8N1, _rxPin, _txPin);
-  ESP_LOGI(TAG_MB, "Serial2 initialised at %d baud (RX=%d TX=%d)", _baud, _rxPin, _txPin);
+  Log_info("Serial2 initialised at %d baud (RX=%d TX=%d)", _baud, _rxPin, _txPin);
 
   _requestQueue = xQueueCreate(4, sizeof(ModbusRequest));
   xTaskCreatePinnedToCore(modbusTransportTask, "Modbus_Task", 4096, this, 2, NULL, 0);
-  ESP_LOGI(TAG_MB, "Modbus task started on Core 0.");
+  Log_info("Modbus task started on Core 0.");
 }
 
 /**
@@ -374,7 +372,7 @@ bool ModbusTransport::reconnect() {
   // Reuse setBaud() with the current baud - this routes through the task
   // queue, so Serial2.end()/begin() executes inside modbusTransportTask.
   setBaud(_baud);
-  ESP_LOGI(TAG_MB, "Serial2 reconnected at %d baud.", _baud);
+  Log_info("Serial2 reconnected at %d baud.", _baud);
   return true;
 }
 
@@ -425,7 +423,7 @@ bool ModbusTransport::readRegister(uint8_t slave, uint16_t reg, uint16_t& value)
   vQueueDelete(respQ);
 
   if (timedOut) {
-    ESP_LOGE(TAG_MB, "readRegister: caller timed out waiting for task.");
+    Log_error("readRegister: caller timed out waiting for task.");
     return false;
   }
   if (resp.success) {
@@ -456,7 +454,7 @@ bool ModbusTransport::readRegisters(uint8_t slave, uint16_t startAddress, uint8_
   vQueueDelete(respQ);
 
   if (timedOut) {
-    ESP_LOGE(TAG_MB, "readRegisters: caller timed out waiting for task.");
+    Log_error("readRegisters: caller timed out waiting for task.");
     return false;
   }
   if (resp.success) {
@@ -490,7 +488,7 @@ bool ModbusTransport::writeRegister(uint8_t slave, uint16_t reg, uint16_t value)
   vQueueDelete(respQ);
 
   if (timedOut) {
-    ESP_LOGE(TAG_MB, "writeRegister: caller timed out waiting for task.");
+    Log_error("writeRegister: caller timed out waiting for task.");
     return false;
   }
   return resp.success;
@@ -521,7 +519,7 @@ bool ModbusTransport::writeRegisters(uint8_t slave, uint16_t startAddress, const
   vQueueDelete(respQ);
 
   if (timedOut) {
-    ESP_LOGE(TAG_MB, "writeRegisters: caller timed out waiting for task.");
+    Log_error("writeRegisters: caller timed out waiting for task.");
     return false;
   }
   return resp.success;

@@ -2,15 +2,13 @@
 
 #include <Arduino.h>
 
-#include "esp_log.h"
+#include "../../../../src/SerialController/src/LogBuffer.h"
 
 /**
  * ModbusDevice.cpp - Abstract base class for Modbus device drivers.
  *
  * Java equivalent: com.serial.device.base.ModbusDevice
  */
-
-static const char* TAG_MD = "MODBUS_DEV";
 
 ModbusDevice::ModbusDevice(ModbusTransport* transport, uint8_t slave)
     : transport(transport), slave(slave) {
@@ -67,7 +65,7 @@ bool ModbusDevice::read(const DeviceRegister& reg, double& value) {
     return false;
   }
   value = reg.decode((int)raw);
-  ESP_LOGD(TAG_MD, "    -> %s: %.4f %s", reg.name, value, reg.unit ? reg.unit : "");
+  Log_debug("    -> %s: %.4f %s", reg.name, value, reg.unit ? reg.unit : "");
   return true;
 }
 
@@ -96,7 +94,7 @@ bool ModbusDevice::readInt(const DeviceRegister& reg, int& value) {
  * Deviation: bool return instead of void / throws.
  */
 bool ModbusDevice::write(const DeviceRegister& reg, double value) {
-  ESP_LOGD(TAG_MD, "    -> %s: %.4f %s (write)", reg.name, value, reg.unit ? reg.unit : "");
+  Log_debug("    -> %s: %.4f %s (write)", reg.name, value, reg.unit ? reg.unit : "");
   return transport->writeRegister(slave, reg.address, (uint16_t)reg.encode(value));
 }
 
@@ -119,7 +117,7 @@ bool ModbusDevice::writeInt(const DeviceRegister& reg, int value) {
  * Deviation: bool return instead of void / throws.
  */
 bool ModbusDevice::writeVerified(const DeviceRegister& regSet, const DeviceRegister& regOut, double value) {
-  ESP_LOGI(TAG_MD, "writeVerified %s -> %.4f %s", regSet.name, value, regSet.unit ? regSet.unit : "");
+  Log_info("writeVerified %s -> %.4f %s", regSet.name, value, regSet.unit ? regSet.unit : "");
   for (int attempt = 1; attempt <= MAX_RETRY; attempt++) {
     if (!write(regSet, value)) {
       continue;
@@ -129,15 +127,15 @@ bool ModbusDevice::writeVerified(const DeviceRegister& regSet, const DeviceRegis
     double readOut = 0.0;
     read(regSet, readSet);
     read(regOut, readOut);
-    ESP_LOGI(TAG_MD, "  attempt %d: SET=%.4f %s OUT=%.4f %s",
+    Log_info("  attempt %d: SET=%.4f %s OUT=%.4f %s",
              attempt, readSet, regSet.unit ? regSet.unit : "",
              readOut, regOut.unit ? regOut.unit : "");
     if (readSet == value) {
-      ESP_LOGI(TAG_MD, "  %s verified", regSet.name);
+      Log_info("  %s verified", regSet.name);
       return true;
     }
   }
-  ESP_LOGE(TAG_MD, "Failed to set %s after %d attempts", regSet.name, MAX_RETRY);
+  Log_error("Failed to set %s after %d attempts", regSet.name, MAX_RETRY);
   return false;
 }
 

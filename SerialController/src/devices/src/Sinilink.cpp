@@ -2,16 +2,14 @@
 
 #include <Arduino.h>
 
+#include "../../../src/SerialController/src/LogBuffer.h"
 #include "../../modbus/src/ModbusConstants.h"
-#include "esp_log.h"
 
 /**
  * Sinilink.cpp - Driver for Sinilink XY-series DC/DC converters.
  *
  * Java equivalent: com.serial.devices.Sinilink
  */
-
-static const char* TAG_SI = "SINILINK";
 
 // ---- DeviceRegister descriptors ---------------------------------------------
 // Java equivalent: public static final DeviceRegister ... in Sinilink.java
@@ -121,7 +119,7 @@ bool Sinilink::verifyDevicePresent() {
 
   char hexBuf[5];
   snprintf(hexBuf, sizeof(hexBuf), "%04X", (unsigned)modelValue);
-  ESP_LOGI(TAG_SI, "Product model register (0x0016) raw value: %d (0x%s)", modelValue, hexBuf);
+  Log_info("Product model register (0x0016) raw value: %d (0x%s)", modelValue, hexBuf);
 
   // Step 1: exact match in KNOWN_MODELS
   const char* modelName = lookupKnownModel(modelValue);
@@ -130,15 +128,15 @@ bool Sinilink::verifyDevicePresent() {
   if (modelName == nullptr && (modelValue >> 8) == SINILINK_MODEL_HIGH_BYTE) {
     modelName = lookupReportedModel(modelValue);
     if (modelName != nullptr) {
-      ESP_LOGW(TAG_SI,
-               "Product model register 0x%s matched community-reported data as %s"
-               " -- not factory-confirmed; promote to KNOWN_MODELS once verified on hardware.",
-               hexBuf, modelName);
+      Log_warn(
+          "Product model register 0x%s matched community-reported data as %s"
+          " -- not factory-confirmed; promote to KNOWN_MODELS once verified on hardware.",
+          hexBuf, modelName);
     } else {
-      ESP_LOGW(TAG_SI,
-               "Product model register 0x%s has Sinilink 'Y' high byte"
-               " but is not in KNOWN_MODELS or REPORTED_MODELS -- device not identified.",
-               hexBuf);
+      Log_warn(
+          "Product model register 0x%s has Sinilink 'Y' high byte"
+          " but is not in KNOWN_MODELS or REPORTED_MODELS -- device not identified.",
+          hexBuf);
     }
   }
 
@@ -151,7 +149,7 @@ bool Sinilink::verifyDevicePresent() {
 
   int fw = 0;
   readInt(FWVR, fw);
-  ESP_LOGI(TAG_SI, "Detected Sinilink %s (product model: 0x%s, FW raw: %d).",
+  Log_info("Detected Sinilink %s (product model: 0x%s, FW raw: %d).",
            modelName, hexBuf, fw);
   return true;
 }

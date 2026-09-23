@@ -12,7 +12,7 @@
 #include "ActiveDevice.h"
 #include "ConverterStateGlobal.h"
 #include "ESPInfo.h"
-#include "esp_log.h"
+#include "LogBuffer.h"
 #include "index_html.h"
 
 /**
@@ -30,8 +30,6 @@
  * The ESP32-specific /status and /reset endpoints have no Java equivalent and
  * live here alongside the other platform-specific startup code.
  */
-
-static const char* TAG_SRV = "SERVER";
 
 // Onboard LED used for fault signalling (GPIO 2 on ESP32-WROOM-32)
 #define FAULT_LED_PIN 2
@@ -104,7 +102,7 @@ WiFiManager wm;
  * No Java equivalent (ESP32-specific endpoint).
  */
 static void handleGetStatus(AsyncWebServerRequest* request) {
-  ESP_LOGI(TAG_SRV, "GET /status");
+  Log_info("GET /status");
   JsonDocument doc;
   JsonObject root = doc.to<JsonObject>();
   fillESPInfo(root);
@@ -118,7 +116,7 @@ static void handleGetStatus(AsyncWebServerRequest* request) {
  * No Java equivalent (ESP32-specific endpoint).
  */
 static void handleReset(AsyncWebServerRequest* request) {
-  ESP_LOGW(TAG_SRV, "GET /reset - CLEARING SETTINGS");
+  Log_warn("GET /reset - CLEARING SETTINGS");
   request->send(HTTP_CODE_OK, "text/plain",
                 "WiFi settings cleared. ESP32 rebooting to Configuration Mode...");
   delay(200);
@@ -132,7 +130,7 @@ static void handleReset(AsyncWebServerRequest* request) {
  * GET /voltage - legacy alias; prefer GET /api/voltage.
  */
 static void handleGetVoltageLegacy(AsyncWebServerRequest* request) {
-  ESP_LOGI(TAG_SRV, "GET /voltage (deprecated)");
+  Log_info("GET /voltage (deprecated)");
   if (!converterState.isDeviceOnline()) {
     request->send(HTTP_CODE_SERVICE_UNAVAILABLE, "application/json", "{\"error\":\"Device offline\"}");
     return;
@@ -153,12 +151,59 @@ static void handleSetVoltageLegacy(AsyncWebServerRequest* request) {
     return;
   }
   float v = request->arg("v").toFloat();
-  ESP_LOGI(TAG_SRV, "POST /setVoltage?v=%.2f (deprecated)", v);
+  Log_info("POST /setVoltage?v=%.2f (deprecated)", v);
   if (activeDevice != nullptr && activeDevice->setVoltage(v)) {
     request->send(HTTP_CODE_OK, "text/plain", "Voltage set to: " + String(v, 2) + "V");
   } else {
     request->send(HTTP_CODE_SERVICE_UNAVAILABLE, "text/plain", "Riden Modbus Write Failed");
   }
+}
+
+// ---- Log retrieval (ESP32-specific, no Java equivalent) --------------------
+
+/**
+ * GET /api/log        - returns the last N log lines as a JSON array.
+ * GET /api/log?clear=1 - clears the buffer, then returns an empty array.
+ *
+ * No Java equivalent - ESP32-specific remote diagnostics endpoint.
+ * Allows log retrieval when no USB serial connection is available.
+ */
+static void handleGetLog(AsyncWebServerRequest* request) {
+  Log_info("GET /api/log");
+  if (request->hasArg("clear") && request->arg("clear") == "1") {
+    Log.clear();
+  }
+  String json;
+  Log.getJson(json);
+  request->send(HTTP_CODE_OK, "application/json", json);
+}
+
+/**
+ * PUT /api/log/level - change the active log level at runtime.
+ *
+ * Body: {"level":"DEBUG"}
+ * Valid values: ERROR, WARN, INFO, DEBUG, TRACE (case-insensitive).
+ * Returns 200 {"level":"DEBUG"} on success, 400 on unrecognised level.
+ *
+ * No Java equivalent - ESP32-specific remote diagnostics endpoint.
+ */
+static void handlePutLogLevel(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t, size_t) {
+  JsonDocument doc;
+  DeserializationError err = deserializeJson(doc, data, len);
+  if (err || !doc["level"].is<const char*>()) {
+    request->send(400, "application/json", "{\"error\":\"Expected {\\\"level\\\":\\\"INFO\\\"}\"}");
+    return;
+  }
+  const char* name = doc["level"].as<const char*>();
+  if (!Log.setLevelFromString(name)) {
+    request->send(400, "application/json", "{\"error\":\"Unknown level\"}");
+    return;
+  }
+  Log_info("Log level changed to %s", Log.getLevelName());
+  String json = "{\"level\":\"";
+  json += Log.getLevelName();
+  json += "\"}";
+  request->send(HTTP_CODE_OK, "application/json", json);
 }
 
 // ---- Browser UI (Java reference implementation) ----------------------------
@@ -178,7 +223,7 @@ static void handleSetVoltageLegacy(AsyncWebServerRequest* request) {
  * as a classpath static file at GET /. Behaviour is identical.
  */
 static void handleRoot(AsyncWebServerRequest* request) {
-  ESP_LOGI(TAG_SRV, "GET /");
+  Log_info("GET /");
   request->send_P(HTTP_CODE_OK, "text/html", INDEX_HTML);
 }
 
@@ -192,7 +237,7 @@ static void handleRoot(AsyncWebServerRequest* request) {
  * (Java exposes Swagger UI at /openapi/ui from classpath static files).
  */
 static void handleDoc(AsyncWebServerRequest* request) {
-  ESP_LOGI(TAG_SRV, "GET /doc");
+  Log_info("GET /doc");
   String ip = WiFi.localIP().toString();
   String html = "<!DOCTYPE html><html><head>";
   html += "<title>SerialController API</title>";
@@ -210,7 +255,9 @@ static void handleDoc(AsyncWebServerRequest* request) {
   html += "</style></head><body>";
 
   html += "<h1>SerialController REST API</h1>";
-  html += "<p>IP: <strong>" + ip + "</strong> | SSID: <strong>" + WiFi.SSID() + "</strong></p>";
+  html += "<p>IP: <strong>" + ip + "</strong> | SSID: <strong>" + WiFi.SSID() +
+          "</strong>"
+          " | Built: <strong>" __DATE__ " " __TIME__ "</strong></p>";
   html += "<p>Live monitor UI: <a href='/'><code>http://" + ip + "/</code></a></p>";
   html += "<p>WebSocket: <code>ws://" + ip + "/ws/data</code></p>";
 
@@ -254,6 +301,12 @@ static void handleDoc(AsyncWebServerRequest* request) {
   html += "<pre>curl -X POST http://" + ip + "/api/protection/clear</pre></div>";
 
   html += "<h2>Diagnostics</h2>";
+  html += "<div class='ep'><span class='m GET'>GET</span><a href='/api/log'><code>/api/log</code></a>";
+  html += "<p>Last " + String(LOG_BUFFER_LINES) + " log lines as JSON. Active level: <strong>" + String(Log.getLevelName()) + "</strong>. Add <code>?clear=1</code> to flush.</p>";
+  html += "<pre>curl http://" + ip + "/api/log</pre></div>";
+  html += "<div class='ep'><span class='m PUT'>PUT</span><code>/api/log/level</code>";
+  html += "<p>Change active log level at runtime. Levels: ERROR, WARN, INFO, DEBUG, TRACE.</p>";
+  html += "<pre>curl -X PUT http://" + ip + "/api/log/level -H 'Content-Type: application/json' -d '{\"level\":\"DEBUG\"}'</pre></div>";
   html += "<div class='ep'><span class='m GET'>GET</span><a href='/status'><code>/status</code></a>";
   html += "<pre>curl http://" + ip + "/status</pre></div>";
   html += "<div class='ep'><span class='m GET'>GET</span><a href='/reset'><code>/reset</code></a>";
@@ -278,12 +331,12 @@ static void handleDoc(AsyncWebServerRequest* request) {
  * calls javalin.start(). WiFiManager replaces jSerialComm port selection.
  */
 void setupServer() {
-  ESP_LOGI(TAG_SRV, "Initializing WiFiManager...");
+  Log_info("Initializing WiFiManager...");
   if (!wm.autoConnect("SerialController")) {
-    ESP_LOGE(TAG_SRV, "WiFi Connection Failed! Halting with SOS signal.");
+    Log_error("WiFi Connection Failed! Halting with SOS signal.");
     haltWithSOS();
   }
-  ESP_LOGI(TAG_SRV, "WiFi Connected! IP: %s", WiFi.localIP().toString().c_str());
+  Log_info("WiFi Connected! IP: %s", WiFi.localIP().toString().c_str());
 
   // Construct DeviceService now that activeDevice is available.
   // Java equivalent: new DeviceService(portName, appConfig)
@@ -303,6 +356,12 @@ void setupServer() {
   // Browser UI (Java reference) and API reference doc (ESP32-specific)
   server.on("/", AsyncWebRequestMethod::HTTP_GET, handleRoot);
   server.on("/doc", AsyncWebRequestMethod::HTTP_GET, handleDoc);
+  server.on("/api/log", AsyncWebRequestMethod::HTTP_GET, handleGetLog);
+  server.on(
+      "/api/log/level", AsyncWebRequestMethod::HTTP_PUT,
+      [](AsyncWebServerRequest* request) {},
+      nullptr,
+      handlePutLogLevel);
   server.on("/status", AsyncWebRequestMethod::HTTP_GET, handleGetStatus);
   server.on("/reset", AsyncWebRequestMethod::HTTP_GET, handleReset);
 
@@ -311,7 +370,7 @@ void setupServer() {
   server.on("/setVoltage", AsyncWebRequestMethod::HTTP_POST, handleSetVoltageLegacy);
 
   server.begin();
-  ESP_LOGI(TAG_SRV, "AsyncWebServer started on port 80 (HTTP + WS on /ws/data).");
+  Log_info("AsyncWebServer started on port 80 (HTTP + WS on /ws/data).");
 
   // Start the DeviceService polling task.
   // Java equivalent: deviceService.start() after javalin.start()

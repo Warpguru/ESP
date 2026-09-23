@@ -2,8 +2,8 @@
 
 #include <Arduino.h>
 
+#include "../../../src/SerialController/src/LogBuffer.h"
 #include "../../modbus/src/ModbusConstants.h"
-#include "esp_log.h"
 
 /**
  * RidenRD50xx.cpp - Driver for Ruideng DPS/RD50xx series DC/DC converters.
@@ -15,8 +15,6 @@
  *   - 0x000B = MODEL (product number), detection register.
  *   - No temperature register - getTemperatureCelsius() returns -999.0.
  */
-
-static const char* TAG_RD5 = "RD50XX";
 
 // ---- DeviceRegister descriptors ---------------------------------------------
 // Java equivalent: public static final DeviceRegister ... in RidenRD50xx.java
@@ -87,7 +85,7 @@ bool RidenRD50xx::verifyDevicePresent() {
     return false;
   }
 
-  ESP_LOGD(TAG_RD5, "Device ID register (0x000B) raw value: %d", deviceId);
+  Log_debug("Device ID register (0x000B) raw value: %d", deviceId);
 
   const char* modelName = lookupDeviceId(deviceId);
   if (modelName == nullptr) {
@@ -101,10 +99,10 @@ bool RidenRD50xx::verifyDevicePresent() {
   readInt(FWVR, fwRaw);
   // fw == 0 is normal on DPS5020 factory batches - not a read error.
   if (fwRaw == 0) {
-    ESP_LOGI(TAG_RD5, "Detected Ruideng DPS/RD50xx (Model: %s, FW: unknown) at slave %d.",
+    Log_info("Detected Ruideng DPS/RD50xx (Model: %s, FW: unknown) at slave %d.",
              modelName, slave);
   } else {
-    ESP_LOGI(TAG_RD5, "Detected Ruideng DPS/RD50xx (Model: %s, FW: v%.1f) at slave %d.",
+    Log_info("Detected Ruideng DPS/RD50xx (Model: %s, FW: v%.1f) at slave %d.",
              modelName, fwRaw / 10.0, slave);
   }
   return true;

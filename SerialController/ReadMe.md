@@ -17,6 +17,10 @@ build. No manual installation required.
 
 ### Arduino IDE
 
+> **Required before first upload:** set **Tools → Core Debug Level → Info** (or higher).
+> Without this, all `ESP_LOG*` macros are compiled out and produce no output — neither
+> on the serial console nor in `GET /api/log`.
+
 Use **Sketch → Include Library → Manage Libraries…** and install:
 
 | Library | Author | Version |
@@ -84,6 +88,7 @@ and reconnects automatically on subsequent boots.
 | PUT | `/api/output` | Enable/disable output `{"outputEnable": true}` |
 | PUT | `/api/keypad` | Lock/unlock keypad `{"keypadLock": true}` |
 | POST | `/api/protection/clear` | Clear tripped protection state |
+| GET | `/api/log` | Last 32 `ESP_LOG*` lines as JSON array; `?clear=1` to flush |
 | GET | `/status` | ESP32 hardware + WiFi diagnostics (JSON) |
 | GET | `/reset` | Clear WiFi credentials and reboot into portal mode |
 
@@ -292,6 +297,7 @@ return x;                   →    return _x;  // single 32-bit load; safe witho
 applicationSetup()
   │
   ├─ Serial.begin(115200)
+  ├─ logBufferInit()             installs ESP_LOG* → ring buffer; chains to UART0
   ├─ new ModbusTransport(RX=16, TX=17, 9600)
   │    └─ starts modbusTransportTask on Core 0
   │

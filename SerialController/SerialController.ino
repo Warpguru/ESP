@@ -1,7 +1,7 @@
 /**
  * SerialController.ino - Arduino IDE entry point (stub).
  *
- * All application logic lives in src/Serial/src/Application.cpp.
+ * All application logic lives in src/SerialController/src/Application.cpp.
  * This file exists solely to satisfy the Arduino IDE requirement that
  * a .ino file matching the sketch folder name must be present.
  * It delegates setup() and loop() to the Application package so that
