@@ -39,11 +39,57 @@ For PlatformIO the `platformio.ini` `lib_deps` section lists all dependencies wi
 
 ## Hardware
 
-| Connection | ESP32 pin |
+### Riden RS-232 (UART2)
+
+| Signal | ESP32 pin | Wire colour (Riden 4-pin header) |
+|---|---|---|
+| UART2 RX (receive from Riden) | GPIO 16 | Green (TxD on Riden) |
+| UART2 TX (transmit to Riden) | GPIO 17 | White (RxD on Riden) |
+| GND | GND | Black |
+| VCC | **NC — do not connect** | Red |
+
+> The Riden TTL header is 3.3 V. GPIO 16/17 are the default `Serial2` pins on
+> the ESP32-WROOM-32. No level shifter is required.
+
+### Fault indicator
+
+| Signal | ESP32 pin |
 |---|---|
-| Riden RX | GPIO 16 (TX2) |
-| Riden TX | GPIO 17 (RX2) |
-| Fault indicator LED | GPIO 2 (onboard LED) |
+| Fault indicator LED (SOS blink on WiFi failure) | GPIO 2 (onboard LED) |
+
+### Hardware serial console (battery-powered operation)
+
+When the ESP32 runs on a battery pack there is no USB connection and therefore
+no access to the Serial Monitor. All `ESP_LOG*` messages are still transmitted
+on **UART0**, which is also the USB-serial port. To read them wirelessly-free:
+
+1. Connect a **3.3 V USB-to-UART adapter** (CP2102, CH340, FT232RL, etc.) to a
+   laptop. **Do not use a 5 V adapter — GPIO 1/3 are not 5 V tolerant.**
+2. Wire it to the ESP32 as follows:
+
+| Signal | ESP32 pin | Adapter pin |
+|---|---|---|
+| UART0 TX (ESP32 transmits log output) | GPIO 1 (TX0) | RXD |
+| UART0 RX (optional, for sending commands) | GPIO 3 (RX0) | TXD |
+| GND | GND | GND |
+
+3. Open a serial terminal (Arduino IDE Serial Monitor, PuTTY, `screen`, etc.)
+   at **115200 baud, 8-N-1**.
+4. All `ESP_LOGI` / `ESP_LOGW` / `ESP_LOGE` messages appear as normal, e.g.:
+   ```
+   I (1234) MAIN: Starting SerialController: Step 4
+   I (2001) MODBUS: Serial2 initialised at 9600 baud (RX=16 TX=17)
+   I (3010) RD60XX: Detected Riden RD60xx (Model: RD6006, ID: 60062, FW: 107)
+   ```
+
+> **Note:** GPIO 1/3 are also used by the USB-serial bridge chip on boards with
+> an onboard USB port. While the adapter is connected, do not simultaneously
+> connect USB — the two drivers will conflict. Disconnect the adapter before
+> plugging in USB for a firmware upload.
+
+> **Alternative (no extra hardware):** Once Step 10 (`GET /api/log`) is
+> implemented, log messages can be retrieved over WiFi from any browser or
+> `curl http://<ip>/api/log` — no serial adapter needed.
 
 ## First-time setup
 
