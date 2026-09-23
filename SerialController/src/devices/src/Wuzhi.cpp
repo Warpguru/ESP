@@ -59,7 +59,7 @@ static constexpr int KNOWN_MODELS_COUNT = (int)(sizeof(KNOWN_MODELS) / sizeof(KN
 /**
  * Community-reported lookup table: packed 0x59xx product model register values.
  * Java equivalent: Wuzhi.REPORTED_MODELS (currently empty in Java, same here)
- * NOTE — community data, not factory-confirmed. Populate when ZK-6522C raw value is observed.
+ * NOTE - community data, not factory-confirmed. Populate when ZK-6522C raw value is observed.
  */
 static const WuzhiModelEntry REPORTED_MODELS[] = {
     // TODO: populate with community-reported ZK-series model register values as they are discovered.
@@ -146,7 +146,7 @@ bool Wuzhi::verifyDevicePresent() {
   return true;
 }
 
-// ---- DC2DCConverter interface — getDevice / getManufacturer -----------------
+// ---- DC2DCConverter interface - getDevice / getManufacturer -----------------
 
 const char* Wuzhi::getDevice() {
   return ModbusDevice::getDevice();
@@ -177,9 +177,9 @@ bool Wuzhi::pollAll() {
   cacheCurrentOut = IOUT.decode(r[3]);
   cachePowerOut = POUT.decode(r[4]);
   cacheVoltageIn = VIN.decode(r[5]);
-  // r[6..12]: AH/WH/timer counters — not used
+  // r[6..12]: AH/WH/timer counters - not used
   cacheTemperature = TEMP.decode(r[13]);
-  // r[14]: external temp — not used
+  // r[14]: external temp - not used
   cacheLock = r[15];
   cacheProtection = r[16];
   cacheMode = r[17];

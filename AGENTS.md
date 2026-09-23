@@ -1,4 +1,4 @@
-# AGENTS.md — SerialController ESP32 Port
+# AGENTS.md - SerialController ESP32 Port
 
 This file is the authoritative reference for any AI agent or developer working on
 this codebase. Read it fully before making any change.
@@ -27,9 +27,9 @@ path.** All other tools fail on this symlink:
 
 | Tool | Result on `Template/` |
 |---|---|
-| `list_files` | ❌ EPERM — do not use |
-| `glob` | ❌ returns no results — do not use |
-| `grep` | ❌ returns no results — do not use |
+| `list_files` | ❌ EPERM - do not use |
+| `glob` | ❌ returns no results - do not use |
+| `grep` | ❌ returns no results - do not use |
 | `read_file` with explicit path | ✅ works correctly |
 
 To read a Java source file, call `read_file` with the path written out in full, e.g.:
@@ -39,23 +39,23 @@ read_file("Template/src/main/java/com/serial/service/ConverterState.java")
 read_file("Template/src/main/java/com/serial/device/RidenRD60xx.java")
 ```
 
-Do **not** try to discover files by browsing — use the known paths listed below.
+Do **not** try to discover files by browsing - use the known paths listed below.
 Always read the Java counterpart before porting or changing any behaviour.
 
 Key Java source paths (all under `Template/src/main/java/com/serial/`):
 ```
-service/ConverterState.java        — shared state object (authoritative spec)
-service/ConverterTopology.java     — topology enum
-service/DeviceService.java         — Modbus polling thread, hysteresis, online logic
-service/WebSocketService.java      — 1 s broadcaster thread
-service/RestService.java           — HTTP route registration
-device/ModbusDevice.java           — base class: read/write/writeVerified
-device/DeviceRegister.java         — register descriptor (encode/decode)
-device/RidenRD60xx.java            — Riden 60xx driver (pollAll, setters)
-device/RidenRD50xx.java            — Riden 50xx driver
-device/Sinilink.java               — Sinilink XY-series driver
-device/Wuzhi.java                  — Wuzhi ZK-series driver
-modbus/ModbusTransport.java        — low-level Modbus RTU framing
+service/ConverterState.java        - shared state object (authoritative spec)
+service/ConverterTopology.java     - topology enum
+service/DeviceService.java         - Modbus polling thread, hysteresis, online logic
+service/WebSocketService.java      - 1 s broadcaster thread
+service/RestService.java           - HTTP route registration
+device/ModbusDevice.java           - base class: read/write/writeVerified
+device/DeviceRegister.java         - register descriptor (encode/decode)
+device/RidenRD60xx.java            - Riden 60xx driver (pollAll, setters)
+device/RidenRD50xx.java            - Riden 50xx driver
+device/Sinilink.java               - Sinilink XY-series driver
+device/Wuzhi.java                  - Wuzhi ZK-series driver
+modbus/ModbusTransport.java        - low-level Modbus RTU framing
 ```
 
 ---
@@ -122,15 +122,15 @@ ESP/                                   ← workspace root
 ## Dual-toolchain compatibility (CRITICAL)
 
 The sketch must compile and upload correctly under **both**:
-- **Arduino IDE 2.x** — opens `SerialController.ino`, compiles all `.cpp`/`.h` files in
+- **Arduino IDE 2.x** - opens `SerialController.ino`, compiles all `.cpp`/`.h` files in
   the sketch folder and `src/` recursively.
-- **PlatformIO / VSCode** — uses `platformio.ini` with `src_dir = .` and `lib_dir = src`;
+- **PlatformIO / VSCode** - uses `platformio.ini` with `src_dir = .` and `lib_dir = src`;
   compiles all `.cpp` files it finds, including `SerialController.cpp`.
 
 ### The duplicate-symbol problem
 
 Arduino IDE silently converts `SerialController.ino` into a `.cpp` translation unit and
-provides its own `setup()` / `loop()` definitions. PlatformIO does **not** do this — it
+provides its own `setup()` / `loop()` definitions. PlatformIO does **not** do this - it
 compiles `SerialController.cpp` as a plain C++ file alongside everything else.
 
 If both `SerialController.ino` (as seen by Arduino IDE) and `SerialController.cpp` (as
@@ -148,7 +148,7 @@ void setup() { applicationSetup(); }
 void loop()  { applicationLoop(); }
 ```
 Arduino IDE compiles this. PlatformIO also sees it but `.ino` files are **ignored** by
-PlatformIO when `src_dir = .` is set — they are not fed to the compiler.
+PlatformIO when `src_dir = .` is set - they are not fed to the compiler.
 
 **`SerialController.cpp`** (PlatformIO entry point, ~10 lines):
 ```cpp
@@ -161,14 +161,14 @@ void loop()  { applicationLoop(); }
 PlatformIO compiles this (the `#ifndef ARDUINO` block is active because the Arduino
 framework does not define `ARDUINO` as a macro in the PlatformIO build for this board
 configuration). Arduino IDE also sees this file but the `#ifndef ARDUINO` guard makes
-the entire body invisible — `ARDUINO` **is** defined in the Arduino IDE build — so no
+the entire body invisible - `ARDUINO` **is** defined in the Arduino IDE build - so no
 duplicate symbols occur.
 
 ### Rules that follow from this
 
 - **Never delete** `SerialController.ino` or `SerialController.cpp`.
 - **Never add** `setup()` or `loop()` definitions anywhere else.
-- **Never create** any other `.ino` file — Arduino IDE merges all `.ino` files in the
+- **Never create** any other `.ino` file - Arduino IDE merges all `.ino` files in the
   sketch folder into one translation unit, causing redefinition errors.
 - All real logic lives in `Application.cpp` (and the `src/` package tree); both stubs
   just delegate to `applicationSetup()` / `applicationLoop()`.
@@ -185,7 +185,7 @@ Arduino IDE and PlatformIO share a single layout. Both tools compile `src/` recu
 - Relative includes from `src/<pkg>/src/base/` (one level deeper): `../../../../<file>.h`
 - Cross-package includes: `../../<other-pkg>/src/<file>.h`
 - **Never** use angle-bracket includes for sketch-local files.
-- **Never** create `.ino` files for new code — only `SerialController.ino` may exist.
+- **Never** create `.ino` files for new code - only `SerialController.ino` may exist.
 
 ---
 
@@ -197,7 +197,7 @@ Arduino IDE and PlatformIO share a single layout. Both tools compile `src/` recu
 | `activeDevice` | `DC2DCConverter*` | `Application.cpp` (Step 4) | `ActiveDevice.h` (Step 4) |
 
 Include the `*Global.h` / `*Global.h` header from any file that needs the instance.
-Never include the package header directly from sketch-root files — use the bridge header.
+Never include the package header directly from sketch-root files - use the bridge header.
 
 ---
 
@@ -262,7 +262,7 @@ after which the `ModBus.h` and `RidenConfig.h` includes can be removed from
 | `SerialController.cpp` | PlatformIO entry point (`#ifndef ARDUINO` guard, permanent) |
 | `ConverterStateGlobal.h` | extern bridge for the `converterState` singleton |
 | `ESPInfo.h` | ESP32 hardware diagnostics for `GET /status` (no planned replacement) |
-| `Server.cpp` / `Server.h` | WiFi, HTTP, WebSocket — refactored per step, never deleted |
+| `Server.cpp` / `Server.h` | WiFi, HTTP, WebSocket - refactored per step, never deleted |
 
 ---
 
@@ -306,7 +306,7 @@ counterpart. Deviating from Java naming or structure requires an explicit reason
 ### Code style
 
 - **Every method body starts on a new line after `{`.** This applies to all methods
-  without exception — including trivial getters and setters.
+  without exception - including trivial getters and setters.
 
   ✅ Correct:
   ```cpp
@@ -327,7 +327,7 @@ counterpart. Deviating from Java naming or structure requires an explicit reason
   ```
 
 - **No single-line `if` / `for` / `while` bodies.** After every `{` the body starts
-  on a new line. Always use braces — never omit them.
+  on a new line. Always use braces - never omit them.
 
   ✅ Correct:
   ```cpp
@@ -350,17 +350,17 @@ counterpart. Deviating from Java naming or structure requires an explicit reason
 - **Read the Java counterpart** before porting any class or method.
   Use `read_file` with the full explicit path, e.g.
   `read_file("Template/src/main/java/com/serial/service/ConverterState.java")`.
-  `list_files`, `glob`, and `grep` all fail silently on the `Template/` symlink —
+  `list_files`, `glob`, and `grep` all fail silently on the `Template/` symlink -
   `read_file` with an explicit path is the **only** tool that works.
 - **Minimal change.** Only modify lines directly required. Never reformat, rename, or
   refactor unrelated code.
 - **No new `.ino` files.** All new code is `.cpp` / `.h`.
 - **No duplicate globals.** The `converterState` instance is defined exactly once in
   `Application.cpp`. All other files use `ConverterStateGlobal.h`.
-- **Relative includes only** for sketch-local files — no angle brackets.
+- **Relative includes only** for sketch-local files - no angle brackets.
 - **No C++ exceptions.** Use `bool` return values for fallible operations.
 - **Thread safety.** Every mutable field in `ConverterState` is protected by `_mutex`.
   Getters for primitive types return by value without the mutex (matches Java
-  `volatile` semantics — single-word reads are atomic on Xtensa LX6).
+  `volatile` semantics - single-word reads are atomic on Xtensa LX6).
 - **Step discipline.** Implement one step at a time. Do not implement a future step's
   work speculatively. Ask before starting any step.

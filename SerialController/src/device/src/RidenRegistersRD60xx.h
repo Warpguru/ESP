@@ -9,7 +9,7 @@
  *
  * In Java this is a final class with only static final int constants.
  * In C++ the equivalent is a class with only static constexpr uint16_t constants
- * (no instances needed — same semantics as Java's private constructor pattern).
+ * (no instances needed - same semantics as Java's private constructor pattern).
  *
  * Scaling factors for the RD60xx series:
  *   Voltage values: raw / 100  = volts
@@ -17,7 +17,7 @@
  *   Power values:   raw / 100  = watts
  *
  * DeviceRegister descriptors (VSET, ISET, VOUT, etc.) are declared in
- * RidenRD60xx and use these addresses — same split as the Java code.
+ * RidenRD60xx and use these addresses - same split as the Java code.
  */
 class RidenRegistersRD60xx {
  public:
@@ -124,7 +124,7 @@ class RidenRegistersRD60xx {
   static constexpr uint16_t REG_CURRENT_RANGE = 0x0014;
 
  private:
-  // Not instantiable — all members are static constants.
+  // Not instantiable - all members are static constants.
   // Java equivalent: private constructor in RidenRegistersRD60xx.java
   RidenRegistersRD60xx() = delete;
 };

@@ -13,7 +13,7 @@
  * Provides helper functions and ArduinoJson serialisation for ESP32 diagnostics
  * metrics exposed via GET /status.
  *
- * No Java equivalent — this is ESP32-specific platform diagnostics.
+ * No Java equivalent - this is ESP32-specific platform diagnostics.
  * The Java application has no /status endpoint; it uses the OS and JVM for
  * diagnostics (e.g. JVM heap, OS serial port enumeration).
  */

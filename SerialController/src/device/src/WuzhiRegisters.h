@@ -7,11 +7,11 @@
  *
  * The Wuzhi ZK-series register map is address-for-address identical to
  * SinilinkRegisters. The single critical difference is current scaling:
- *   ISET / IOUT use scale 100 (10 mA resolution) — NOT scale 1000 as on
+ *   ISET / IOUT use scale 100 (10 mA resolution) - NOT scale 1000 as on
  *   the Sinilink XY6008/XY6014 class. Using the wrong scale produces a 10×
  *   current error.
  *
- * Scaling factors (see doc/SerialController.md — Register Scaling table):
+ * Scaling factors (see doc/SerialController.md - Register Scaling table):
  *   Voltage : raw / 100 = volts
  *   Current : raw / 100 = amperes  ← DIFFERENT from Sinilink XY6008/XY6014
  *   Power   : raw / 100 = watts

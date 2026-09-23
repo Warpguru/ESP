@@ -24,7 +24,7 @@
 static const char* TAG_DETECT = "DETECT";
 
 // ---- Primary baud rates (Java: ModbusTransport.PRIMARY_BAUDS) ---------------
-// 115200 and 9600 — detect >99% of devices in <2 s.
+// 115200 and 9600 - detect >99% of devices in <2 s.
 static const int PRIMARY_BAUDS[] = {
     ModbusConstants::BAUD_115200,
     ModbusConstants::BAUD_9600};

@@ -8,7 +8,7 @@
  * Java equivalent: com.serial.modbus.ModbusCRC
  *
  * Replaces a Java utility class (private constructor, static method) with a
- * C++ namespace — the idiomatic equivalent, matching ModbusConstants.h and
+ * C++ namespace - the idiomatic equivalent, matching ModbusConstants.h and
  * ModbusFunctionCodes.h.
  */
 namespace ModbusCRC {

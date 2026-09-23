@@ -1,9 +1,9 @@
-# Iteration 7: Shared Device State — Dual-Core Architecture Foundation
+# Iteration 7: Shared Device State - Dual-Core Architecture Foundation
 
 ## Goal
 
 Introduce the shared data architecture that will connect the WebServer thread (Core 0) and the
-Modbus thread (Core 1). This iteration does **not** change any existing WiFi or Modbus logic —
+Modbus thread (Core 1). This iteration does **not** change any existing WiFi or Modbus logic -
 it only adds the new files and wires them into the existing sketch so the structure compiles and
 the mutex-protected accessors can be verified via the Serial Monitor.
 
@@ -15,7 +15,7 @@ the mutex-protected accessors can be verified via the Serial Monitor.
 
 The WebServer (Core 0) needs to display current converter values. The Modbus task (Core 1) is
 the only code that may touch `Serial2`. These two threads must never directly call each other's
-code. The safe handshake is a **mutex-protected shared struct** — the standard "Isolation
+code. The safe handshake is a **mutex-protected shared struct** - the standard "Isolation
 Pattern" described in `Threads/Threads.md`.
 
 ### Polling strategy
@@ -43,7 +43,7 @@ This keeps Modbus fully isolated on Core 1 and avoids FreeRTOS Queue complexity 
 
 ```mermaid
 graph TD
-    loop["loop() — single thread, Core 1 default"]
+    loop["loop() - single thread, Core 1 default"]
     ds["DeviceState g_deviceState\nprotected by mutex"]
     poll["1 s poll block\nreads V_OUT I_OUT P_OUT V_IN OUTPUT"]
     cmd["Pending-command handler\nchecks every loop iteration"]
@@ -68,8 +68,8 @@ graph TD
 
 | Constant         | Address  | R/W | Unit   | Description                    |
 |------------------|----------|-----|--------|--------------------------------|
-| `REG_MODEL`      | `0x0000` | R   | —      | Model number (e.g. 5020)       |
-| `REG_FW`         | `0x0001` | R   | —      | Firmware version                |
+| `REG_MODEL`      | `0x0000` | R   | -      | Model number (e.g. 5020)       |
+| `REG_FW`         | `0x0001` | R   | -      | Firmware version                |
 | `REG_V_SET`      | `0x0002` | R/W | 0.01 V | Voltage set-point               |
 | `REG_I_SET`      | `0x0003` | R/W | 0.01 A | Current set-point               |
 | `REG_V_OUT`      | `0x0004` | R   | 0.01 V | Actual output voltage           |
@@ -102,7 +102,7 @@ graph TD
 
 ---
 
-### Sub-Task 7.1 — Define `DeviceState.h`
+### Sub-Task 7.1 - Define `DeviceState.h`
 
 **Intent:** Declare the shared data struct, the pending-command enum, and the accessor function
 prototypes in a header that both `.ino` files can include.
@@ -125,19 +125,19 @@ prototypes in a header that both `.ino` files can include.
    - Protection fields (`float ovp`, `float ocp`).
    - Flag fields (`bool outputOn`, `bool keylock`).
    - Info fields (`uint16_t model`, `uint16_t firmware`).
-   - Status field (`bool modbusOk`) — set `false` if last poll failed.
+   - Status field (`bool modbusOk`) - set `false` if last poll failed.
    - Pending command fields: `PendingCmd pendingCmd` and `float pendingValue`.
    - The FreeRTOS mutex handle: `SemaphoreHandle_t mutex`.
-4. Declare free-function prototypes (not methods — keeps it plain C-style callable from any
+4. Declare free-function prototypes (not methods - keeps it plain C-style callable from any
    `.ino` file):
-   - `void deviceState_init(DeviceState* ds)` — creates the mutex, zeroes all fields.
-   - `void deviceState_read(DeviceState* ds, DeviceState* snapshot)` — copies the struct
+   - `void deviceState_init(DeviceState* ds)` - creates the mutex, zeroes all fields.
+   - `void deviceState_read(DeviceState* ds, DeviceState* snapshot)` - copies the struct
      under mutex into `snapshot`.
-   - `void deviceState_write(DeviceState* ds, const DeviceState* src)` — merges fields
+   - `void deviceState_write(DeviceState* ds, const DeviceState* src)` - merges fields
      from `src` under mutex.
-   - `void deviceState_setPending(DeviceState* ds, PendingCmd cmd, float value)` — sets the
+   - `void deviceState_setPending(DeviceState* ds, PendingCmd cmd, float value)` - sets the
      pending command under mutex.
-   - `bool deviceState_takePending(DeviceState* ds, PendingCmd* cmd, float* value)` — atomically
+   - `bool deviceState_takePending(DeviceState* ds, PendingCmd* cmd, float* value)` - atomically
      reads and clears the pending command; returns `true` if a command was waiting.
 
 **Relevant Context:** `Threads/Threads.ino` `SafeStats` class pattern; FreeRTOS
@@ -147,14 +147,14 @@ prototypes in a header that both `.ino` files can include.
 
 ---
 
-### Sub-Task 7.2 — Implement `DeviceState.ino`
+### Sub-Task 7.2 - Implement `DeviceState.ino`
 
 **Intent:** Provide the function bodies declared in `DeviceState.h`. All mutex
 acquire/release logic lives here. No Modbus or HTTP code belongs in this file.
 
 **Expected Outcomes:**
 - All five functions compile and operate correctly.
-- The mutex is always released — even on early-return paths.
+- The mutex is always released - even on early-return paths.
 - A 10 ms timeout is used for `xSemaphoreTake` (never block forever from the web handler,
   which must stay responsive).
 - Each function logs a single `ESP_LOGV` / `ESP_LOGE` line so failures are visible in Serial
@@ -183,7 +183,7 @@ acquire/release logic lives here. No Modbus or HTTP code belongs in this file.
 
 ---
 
-### Sub-Task 7.3 — Wire into `SerialController.ino`
+### Sub-Task 7.3 - Wire into `SerialController.ino`
 
 **Intent:** Create the single global `DeviceState` instance, call `deviceState_init` in
 `setup()`, update the register address `#define`s to the correct values, and replace the
@@ -221,9 +221,9 @@ shared state.
 
 ---
 
-### Sub-Task 7.4 — Smoke-test via Serial Monitor
+### Sub-Task 7.4 - Smoke-test via Serial Monitor
 
-**Intent:** Verify the shared state is working correctly before the web layer uses it — no
+**Intent:** Verify the shared state is working correctly before the web layer uses it - no
 hardware changes, no Server.ino changes.
 
 **Expected Outcomes:**
@@ -249,13 +249,13 @@ hardware changes, no Server.ino changes.
 
 ## What Is Explicitly Out of Scope for Iteration 7
 
-- **No threading yet** — the dual-core split (Web on Core 0, Modbus on Core 1) is Iteration 8.
+- **No threading yet** - the dual-core split (Web on Core 0, Modbus on Core 1) is Iteration 8.
   `loop()` still runs everything sequentially on Core 1 (Arduino default). The mutex is
   introduced now so the data structure is thread-ready when threads arrive.
-- **No web UI changes** — `Server.ino` and `handleRoot()` are not touched.
-- **No Xylink subclass** — the base `DeviceState` + Riden register map is sufficient for now.
+- **No web UI changes** - `Server.ino` and `handleRoot()` are not touched.
+- **No Xylink subclass** - the base `DeviceState` + Riden register map is sufficient for now.
   The Xylink subclass (different register addresses, same struct shape) is Iteration 9+.
-- **No persistent settings** — OVP/OCP set-points are not stored to NVS in this iteration.
+- **No persistent settings** - OVP/OCP set-points are not stored to NVS in this iteration.
 
 ---
 

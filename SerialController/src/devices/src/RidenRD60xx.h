@@ -22,20 +22,20 @@ class RidenRD60xx : public ModbusDevice, public DC2DCConverter {
   // Java equivalent: public static final DeviceRegister ... in RidenRD60xx.java
   // Block: 0x0000–0x0012 (19 registers) read by pollAll() in one 0x03 frame.
 
-  static const DeviceRegister DEVICE_ID;         // offset  0 — model ID, raw
-  static const DeviceRegister FIRMWARE_VERSION;  // offset  3 — firmware, scale 100
-  static const DeviceRegister TEMP_CELSIUS;      // offset  5 — temperature °C, scale 1
-  static const DeviceRegister VSET;              // offset  8 — voltage setpoint V, scale 100
-  static const DeviceRegister ISET;              // offset  9 — current setpoint A, scale 1000
-  static const DeviceRegister VOUT;              // offset 10 — output voltage V, scale 100
-  static const DeviceRegister IOUT;              // offset 11 — output current A, scale 1000
-  static const DeviceRegister AH;                // offset 12 — amp-hours, raw
-  static const DeviceRegister POUT;              // offset 13 — output power W, scale 100
-  static const DeviceRegister VIN;               // offset 14 — input voltage V, scale 100
-  static const DeviceRegister LOCK;              // offset 15 — keypad lock, raw
-  static const DeviceRegister PROTECTION_STATE;  // offset 16 — protection status, raw
-  static const DeviceRegister MODE;              // offset 17 — CV/CC mode, raw
-  static const DeviceRegister OUTPUT_ENABLE;     // offset 18 — output on/off, raw
+  static const DeviceRegister DEVICE_ID;         // offset  0 - model ID, raw
+  static const DeviceRegister FIRMWARE_VERSION;  // offset  3 - firmware, scale 100
+  static const DeviceRegister TEMP_CELSIUS;      // offset  5 - temperature °C, scale 1
+  static const DeviceRegister VSET;              // offset  8 - voltage setpoint V, scale 100
+  static const DeviceRegister ISET;              // offset  9 - current setpoint A, scale 1000
+  static const DeviceRegister VOUT;              // offset 10 - output voltage V, scale 100
+  static const DeviceRegister IOUT;              // offset 11 - output current A, scale 1000
+  static const DeviceRegister AH;                // offset 12 - amp-hours, raw
+  static const DeviceRegister POUT;              // offset 13 - output power W, scale 100
+  static const DeviceRegister VIN;               // offset 14 - input voltage V, scale 100
+  static const DeviceRegister LOCK;              // offset 15 - keypad lock, raw
+  static const DeviceRegister PROTECTION_STATE;  // offset 16 - protection status, raw
+  static const DeviceRegister MODE;              // offset 17 - CV/CC mode, raw
+  static const DeviceRegister OUTPUT_ENABLE;     // offset 18 - output on/off, raw
   static const DeviceRegister PRESET;            // preset selector, raw
   static const DeviceRegister IRANGE;            // current range, raw
 
@@ -76,7 +76,7 @@ class RidenRD60xx : public ModbusDevice, public DC2DCConverter {
   bool reconnect() override;
 
  private:
-  // Poll cache — populated by pollAll(), returned by all getters.
+  // Poll cache - populated by pollAll(), returned by all getters.
   // Block: 0x0000–0x0012 (19 registers). Offset map:
   //  [0]  DEVICE_ID   [1]  SERIAL_HIGH [2]  SERIAL_LOW   [3]  FIRMWARE
   //  [4]  TEMP_SIGN_C [5]  TEMP_C      [6]  TEMP_SIGN_F  [7]  TEMP_F

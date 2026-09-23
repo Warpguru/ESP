@@ -33,11 +33,11 @@ static constexpr uint8_t RIDEN_SLAVE = ModbusConstants::SLAVE_ADDRESS_1;
 
 // ---- Global singletons -----------------------------------------------------
 
-// ConverterState — shared across Server.cpp, DeviceService, RestService, WebSocketService.
+// ConverterState - shared across Server.cpp, DeviceService, RestService, WebSocketService.
 // Java equivalent: DeviceService#state (private field; shared via getState()).
 ConverterState converterState;
 
-// Active device driver pointer — set in applicationSetup(), used by Server.cpp
+// Active device driver pointer - set in applicationSetup(), used by Server.cpp
 // (legacy /setVoltage endpoint) and DeviceService.
 // Java equivalent: DeviceService#converter (private field).
 DC2DCConverter* activeDevice = nullptr;
@@ -60,7 +60,7 @@ void applicationSetup() {
   activeDevice = detectDevice(transport, RIDEN_SLAVE);
 
   if (activeDevice == nullptr) {
-    // No device found — warn and continue.
+    // No device found - warn and continue.
     // Java equivalent: DeviceService logs a warning and continues with
     // converter = null; poll() and write operations are no-ops until a
     // device connects. The HTTP server and WebSocket still start normally
@@ -94,7 +94,7 @@ void applicationLoop() {
   handleServerRequests();
 
   // Drain WebSocket command queue and dispatch via DeviceService.
-  // Runs on Core 1 (the Arduino loop task) — same task that would call
+  // Runs on Core 1 (the Arduino loop task) - same task that would call
   // DeviceService write methods from REST handlers on this same core.
   //
   // Java equivalent: WebSocketService#onMessage calls DeviceService methods

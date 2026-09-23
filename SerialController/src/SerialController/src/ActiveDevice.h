@@ -9,7 +9,7 @@
  * The actual definition `DC2DCConverter* activeDevice = nullptr;` lives in
  * Application.cpp, where it is constructed and assigned in applicationSetup().
  *
- * Java equivalent: the DeviceService#converter field — the active device driver
+ * Java equivalent: the DeviceService#converter field - the active device driver
  * instance owned by DeviceService. Here it is a global because Application.cpp
  * constructs it before DeviceService (which needs it as a constructor argument).
  */

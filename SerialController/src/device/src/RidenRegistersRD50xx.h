@@ -5,7 +5,7 @@
  *
  * Java equivalent: com.serial.device.RidenRegistersRD50xx
  *
- * Source: Hangzhou Rui Deng Technology Co., Ltd — DPS5020 Digital power
+ * Source: Hangzhou Rui Deng Technology Co., Ltd - DPS5020 Digital power
  * communication protocol V1.2 (doc/DPS5020 communication protocol V1.2.pdf).
  *
  * The DPS50xx register layout is distinct from both Sinilink and RD60xx:
@@ -68,7 +68,7 @@ constexpr int REG_DEVICE_ID = 0x000B;
 /**
  * VERSON - Firmware version. R.
  * Raw register / 10.0 = version (e.g. 17 = v1.7).
- * Several DPS5020 factory batches always return 0 — known hardware limitation.
+ * Several DPS5020 factory batches always return 0 - known hardware limitation.
  */
 constexpr int REG_FIRMWARE = 0x000C;
 

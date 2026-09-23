@@ -10,7 +10,7 @@
  * Java equivalent: com.serial.service.RestService
  *
  * All handlers read state via _deviceService->getState() and delegate writes
- * to _deviceService validated methods — matching the Java layering exactly.
+ * to _deviceService validated methods - matching the Java layering exactly.
  */
 
 static const char* TAG_RS = "REST";
@@ -37,7 +37,7 @@ RestService::RestService(AsyncWebServer* server, DeviceService* deviceService)
  * Java equivalent: RestService#registerRoutes
  */
 void RestService::registerRoutes() {
-  // GET handlers — no body, simple lambda captures this.
+  // GET handlers - no body, simple lambda captures this.
   _server->on("/api/state", AsyncWebRequestMethod::HTTP_GET,
               [this](AsyncWebServerRequest* r) { handleGetState(r); });
   _server->on("/api/limits", AsyncWebRequestMethod::HTTP_GET,
@@ -51,7 +51,7 @@ void RestService::registerRoutes() {
   _server->on("/api/power", AsyncWebRequestMethod::HTTP_GET,
               [this](AsyncWebServerRequest* r) { handleGetPower(r); });
 
-  // PUT/POST handlers — body delivered via onBody callback (three-arg form).
+  // PUT/POST handlers - body delivered via onBody callback (three-arg form).
   _server->on(
       "/api/measurements", AsyncWebRequestMethod::HTTP_PUT,
       [](AsyncWebServerRequest* r) {},

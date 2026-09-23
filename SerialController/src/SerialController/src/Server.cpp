@@ -13,11 +13,12 @@
 #include "ConverterStateGlobal.h"
 #include "ESPInfo.h"
 #include "esp_log.h"
+#include "index_html.h"
 
 /**
  * Server.cpp - WiFi initialisation, HTTP/WebSocket server wiring.
  *
- * Java equivalent: com.serial.SerialController#process — pure wiring/glue:
+ * Java equivalent: com.serial.SerialController#process - pure wiring/glue:
  *   - Connect to WiFi (replaces jSerialComm port selection on Java side)
  *   - Construct DeviceService, RestService, WebSocketService
  *   - Register all routes and start the server
@@ -40,7 +41,7 @@ static const char* TAG_SRV = "SERVER";
  * Called when a fatal startup condition is detected (e.g. WiFi failure).
  * Never returns.
  *
- * No Java equivalent — on Java a fatal exception terminates the JVM.
+ * No Java equivalent - on Java a fatal exception terminates the JVM.
  */
 static void haltWithSOS() {
   pinMode(FAULT_LED_PIN, OUTPUT);
@@ -85,7 +86,7 @@ AsyncWebSocket ws("/ws/data");
 WebSocketService wsService(&ws, &converterState);
 
 /**
- * DeviceService — owns the polling task and validated writes.
+ * DeviceService - owns the polling task and validated writes.
  * Constructed in setupServer() after activeDevice is available.
  * Declared extern so Application.cpp can access it for WS command dispatch.
  *
@@ -99,7 +100,7 @@ WiFiManager wm;
 // ---- Diagnostics endpoints (ESP32-specific, no Java equivalent) ------------
 
 /**
- * GET /status — ESP32 hardware and WiFi diagnostics.
+ * GET /status - ESP32 hardware and WiFi diagnostics.
  * No Java equivalent (ESP32-specific endpoint).
  */
 static void handleGetStatus(AsyncWebServerRequest* request) {
@@ -113,7 +114,7 @@ static void handleGetStatus(AsyncWebServerRequest* request) {
 }
 
 /**
- * GET /reset — clears WiFi credentials and reboots.
+ * GET /reset - clears WiFi credentials and reboots.
  * No Java equivalent (ESP32-specific endpoint).
  */
 static void handleReset(AsyncWebServerRequest* request) {
@@ -128,7 +129,7 @@ static void handleReset(AsyncWebServerRequest* request) {
 // ---- Legacy / deprecated endpoints ----------------------------------------
 
 /**
- * GET /voltage — legacy alias; prefer GET /api/voltage.
+ * GET /voltage - legacy alias; prefer GET /api/voltage.
  */
 static void handleGetVoltageLegacy(AsyncWebServerRequest* request) {
   ESP_LOGI(TAG_SRV, "GET /voltage (deprecated)");
@@ -144,7 +145,7 @@ static void handleGetVoltageLegacy(AsyncWebServerRequest* request) {
 }
 
 /**
- * POST /setVoltage?v=x — legacy alias; prefer PUT /api/voltage.
+ * POST /setVoltage?v=x - legacy alias; prefer PUT /api/voltage.
  */
 static void handleSetVoltageLegacy(AsyncWebServerRequest* request) {
   if (!request->hasArg("v")) {
@@ -160,16 +161,38 @@ static void handleSetVoltageLegacy(AsyncWebServerRequest* request) {
   }
 }
 
-// ---- HTML landing page -----------------------------------------------------
+// ---- Browser UI (Java reference implementation) ----------------------------
 
 /**
- * GET / — HTML landing page listing all endpoints.
+ * GET / - Serial Controller live monitor UI.
  *
- * No Java equivalent — Java serves Swagger UI at /openapi/ui from the classpath
- * static files. On ESP32 we generate the page inline.
+ * Serves the Java reference UI (Template/src/main/resources/public/index.html)
+ * from PROGMEM via send_P() so the ~15 KB HTML never occupies DRAM at runtime.
+ * The page self-contains all CSS and JS; no external assets are required.
+ *
+ * The embedded JS connects to ws://<host>/ws/data and drives all UI elements
+ * directly from the ConverterState JSON broadcast (voltage, current, power,
+ * setpoints, output toggle, keypad toggle, protection state, device identity).
+ *
+ * Java equivalent: Javalin serves Template/src/main/resources/public/index.html
+ * as a classpath static file at GET /. Behaviour is identical.
  */
 static void handleRoot(AsyncWebServerRequest* request) {
   ESP_LOGI(TAG_SRV, "GET /");
+  request->send_P(HTTP_CODE_OK, "text/html", INDEX_HTML);
+}
+
+// ---- API reference documentation page -------------------------------------
+
+/**
+ * GET /doc - HTML reference page listing all REST endpoints.
+ *
+ * Kept alongside the browser UI so developers can inspect the API surface
+ * without needing curl or an external tool. Not present in the Java original
+ * (Java exposes Swagger UI at /openapi/ui from classpath static files).
+ */
+static void handleDoc(AsyncWebServerRequest* request) {
+  ESP_LOGI(TAG_SRV, "GET /doc");
   String ip = WiFi.localIP().toString();
   String html = "<!DOCTYPE html><html><head>";
   html += "<title>SerialController API</title>";
@@ -188,6 +211,7 @@ static void handleRoot(AsyncWebServerRequest* request) {
 
   html += "<h1>SerialController REST API</h1>";
   html += "<p>IP: <strong>" + ip + "</strong> | SSID: <strong>" + WiFi.SSID() + "</strong></p>";
+  html += "<p>Live monitor UI: <a href='/'><code>http://" + ip + "/</code></a></p>";
   html += "<p>WebSocket: <code>ws://" + ip + "/ws/data</code></p>";
 
   html += "<h2>State &amp; Limits</h2>";
@@ -249,7 +273,7 @@ static void handleRoot(AsyncWebServerRequest* request) {
 /**
  * Connects to WiFi, constructs service objects, registers all routes, starts server.
  *
- * Java equivalent: SerialController#process — the wiring block that constructs
+ * Java equivalent: SerialController#process - the wiring block that constructs
  * DeviceService, RestService, WebSocketService, registers Javalin routes, and
  * calls javalin.start(). WiFiManager replaces jSerialComm port selection.
  */
@@ -276,8 +300,9 @@ void setupServer() {
   wsService.begin();
   server.addHandler(&ws);
 
-  // Landing page and diagnostics (ESP32-specific, no Java equivalent)
+  // Browser UI (Java reference) and API reference doc (ESP32-specific)
   server.on("/", AsyncWebRequestMethod::HTTP_GET, handleRoot);
+  server.on("/doc", AsyncWebRequestMethod::HTTP_GET, handleDoc);
   server.on("/status", AsyncWebRequestMethod::HTTP_GET, handleGetStatus);
   server.on("/reset", AsyncWebRequestMethod::HTTP_GET, handleReset);
 
@@ -296,7 +321,7 @@ void setupServer() {
 /**
  * No-op: ESPAsyncWebServer handles all requests on its own FreeRTOS task.
  *
- * Java equivalent: not needed — Javalin's Jetty handles requests on its own
+ * Java equivalent: not needed - Javalin's Jetty handles requests on its own
  * thread pool without any manual pump call from main().
  */
 void handleServerRequests() {

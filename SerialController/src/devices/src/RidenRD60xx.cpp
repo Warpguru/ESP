@@ -127,7 +127,7 @@ bool RidenRD60xx::verifyDevicePresent() {
   return true;
 }
 
-// ---- DC2DCConverter interface — getDevice ----------------------------------
+// ---- DC2DCConverter interface - getDevice ----------------------------------
 
 /**
  * Returns the detected model name string (e.g. "RD6006"), or nullptr if not

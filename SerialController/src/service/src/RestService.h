@@ -11,7 +11,7 @@
  *
  * Registers all /api/* routes on the provided AsyncWebServer instance.
  * All reads go through DeviceService#getState(); all writes delegate to
- * DeviceService validated write methods — matching the Java layering exactly.
+ * DeviceService validated write methods - matching the Java layering exactly.
  *
  * Route table (matches Java RestService#registerRoutes):
  *   GET  /api/state

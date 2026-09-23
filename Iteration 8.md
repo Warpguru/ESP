@@ -22,7 +22,7 @@ WebSockets provide a persistent bi-directional connection and allow the server t
 updates to the browser the moment a value changes. That sounds attractive, but:
 
 - The ESP32 `WebServer.h` library does **not** include WebSocket support. A separate library
-  (`arduinoWebSockets` by Links2004) would be needed — an additional dependency, extra RAM
+  (`arduinoWebSockets` by Links2004) would be needed - an additional dependency, extra RAM
   overhead (~4–8 KB heap per open connection), and significant added complexity in `Server.ino`.
 - The Modbus poll in Iteration 7 refreshes `g_deviceState` every **1 second** at best. There
   is therefore never any fresher data to push. A WebSocket push every second provides no benefit
@@ -41,25 +41,25 @@ All API endpoints live under the `/api/` path prefix to clearly separate them fr
 
 | Endpoint              | Method | Body / Params          | Description                          |
 |-----------------------|--------|------------------------|--------------------------------------|
-| `GET /`               | GET    | —                      | Serves the HTML control panel        |
-| `GET /api/state`      | GET    | —                      | Full `DeviceState` as JSON           |
+| `GET /`               | GET    | -                      | Serves the HTML control panel        |
+| `GET /api/state`      | GET    | -                      | Full `DeviceState` as JSON           |
 | `POST /api/voltage`   | POST   | `v=12.50` (form)       | Set voltage set-point                |
 | `POST /api/current`   | POST   | `i=2.00` (form)        | Set current set-point                |
 | `POST /api/ovp`       | POST   | `v=13.00` (form)       | Set over-voltage protection          |
 | `POST /api/ocp`       | POST   | `i=3.00` (form)        | Set over-current protection          |
 | `POST /api/output`    | POST   | `on=1` or `on=0`       | Turn output ON or OFF                |
 | `POST /api/keylock`   | POST   | `lock=1` or `lock=0`   | Lock or unlock the keypad            |
-| `GET /status`         | GET    | —                      | ESP32 chip/WiFi/memory info (keep)   |
-| `GET /reset`          | GET    | —                      | Clear WiFi credentials (keep)        |
+| `GET /status`         | GET    | -                      | ESP32 chip/WiFi/memory info (keep)   |
+| `GET /reset`          | GET    | -                      | Clear WiFi credentials (keep)        |
 
 All POST handlers write a `PendingCmd` into `g_deviceState` via `deviceState_setPending` and
 return immediately with `202 Accepted`. The Modbus task picks it up on its next loop iteration.
 The browser re-polls `/api/state` 2 seconds later to confirm the change.
 
-### HtmlService — separation of rendering from routing
+### HtmlService - separation of rendering from routing
 
 All HTML generation is isolated in a dedicated `HtmlService.ino`. `Server.ino` owns routing and
-request parsing only — it never contains raw HTML strings. This keeps each file focused and
+request parsing only - it never contains raw HTML strings. This keeps each file focused and
 makes it easy to add a second page (e.g. a `/settings` page) in a future iteration by reusing
 the same header and footer from `HtmlService.ino`.
 
@@ -70,7 +70,7 @@ the same header and footer from `HtmlService.ino`.
 | `htmlHeader(const char* title, const char* activePage)` | `String` | `<!DOCTYPE html>` … `<body>` open tag, shared CSS, nav breadcrumb |
 | `htmlFooter()` | `String` | Closes `<body>` and `<html>`, renders the footer bar |
 | `htmlControlPanel(DeviceState* snap)` | `String` | The control panel body rows only (no header/footer HTML) |
-| `buildControlPanelPage(DeviceState* snap)` | `String` | Calls `htmlHeader + htmlControlPanel + htmlFooter` — the full page |
+| `buildControlPanelPage(DeviceState* snap)` | `String` | Calls `htmlHeader + htmlControlPanel + htmlFooter` - the full page |
 
 `Server.ino`'s `handleRoot()` calls only `buildControlPanelPage(&snap)` and sends the result.
 
@@ -117,7 +117,7 @@ graph TD
 The page is one self-contained HTML response assembled from header + body + footer.
 No external files, no CDN, no framework. The style uses a dark background (`#1a1a1a`) with
 bright green digits styled with a monospace font (`font-family: 'Courier New', monospace`) to
-evoke the 7-segment LED look — without loading a custom web font.
+evoke the 7-segment LED look - without loading a custom web font.
 
 Layout (top to bottom, single column, centred, max-width 480 px):
 
@@ -159,7 +159,7 @@ graph TD
     API["GET /api/state → JSON"]
     Post["POST /api/voltage|current|ovp|ocp|output|keylock"]
     DS["DeviceState g_deviceState\nprotected by mutex"]
-    Loop["loop() — sequential"]
+    Loop["loop() - sequential"]
     Modbus["ModBus.ino"]
     Riden["Riden RD5020"]
 
@@ -194,7 +194,7 @@ graph TD
 
 ---
 
-### Sub-Task 8.1 — Add `GET /api/state` JSON endpoint
+### Sub-Task 8.1 - Add `GET /api/state` JSON endpoint
 
 **Intent:** Provide a single endpoint that serialises the entire `DeviceState` snapshot to JSON.
 This is the data source for both the browser's 2-second poll and for external API consumers.
@@ -222,11 +222,11 @@ JSON-building pattern; [`deviceState_read`](SerialController/DeviceState.h) prot
 
 ---
 
-### Sub-Task 8.2 — Add POST handlers for all writable fields
+### Sub-Task 8.2 - Add POST handlers for all writable fields
 
 **Intent:** Give the REST API and the web page a route for every field the user can change.
 Each handler validates input, calls `deviceState_setPending`, and returns `202 Accepted`
-immediately — it does **not** wait for the Modbus task to execute the command.
+immediately - it does **not** wait for the Modbus task to execute the command.
 
 **Expected Outcomes:**
 - Six POST routes registered: `/api/voltage`, `/api/current`, `/api/ovp`, `/api/ocp`,
@@ -238,15 +238,15 @@ immediately — it does **not** wait for the Modbus task to execute the command.
   the command within one loop iteration (~1 s worst case).
 
 **Todo List:**
-1. Add `void handleSetVoltage()` — reads param `v`, validates range 0.0–52.0, calls
+1. Add `void handleSetVoltage()` - reads param `v`, validates range 0.0–52.0, calls
    `deviceState_setPending(&g_deviceState, CMD_SET_VOLTAGE, v)`.
-2. Add `void handleSetCurrent()` — reads param `i`, validates range 0.0–20.0, calls
+2. Add `void handleSetCurrent()` - reads param `i`, validates range 0.0–20.0, calls
    `deviceState_setPending(&g_deviceState, CMD_SET_CURRENT, i)`.
-3. Add `void handleSetOVP()` — reads param `v`, validates range 0.0–55.0.
-4. Add `void handleSetOCP()` — reads param `i`, validates range 0.0–22.0.
-5. Add `void handleSetOutput()` — reads param `on` (value `"1"` or `"0"`), calls
+3. Add `void handleSetOVP()` - reads param `v`, validates range 0.0–55.0.
+4. Add `void handleSetOCP()` - reads param `i`, validates range 0.0–22.0.
+5. Add `void handleSetOutput()` - reads param `on` (value `"1"` or `"0"`), calls
    `deviceState_setPending` with `CMD_OUTPUT_ON` or `CMD_OUTPUT_OFF` (value unused = 0).
-6. Add `void handleSetKeylock()` — reads param `lock` (`"1"` or `"0"`), calls
+6. Add `void handleSetKeylock()` - reads param `lock` (`"1"` or `"0"`), calls
    `deviceState_setPending` with `CMD_SET_KEYLOCK`.
 7. Register all six routes in `setupServer()`.
 
@@ -257,7 +257,7 @@ immediately — it does **not** wait for the Modbus task to execute the command.
 
 ---
 
-### Sub-Task 8.3 — Create `HtmlService.ino`
+### Sub-Task 8.3 - Create `HtmlService.ino`
 
 **Intent:** Implement all HTML rendering in one dedicated file, cleanly separated from routing
 logic in `Server.ino`. Header and footer are reusable building blocks. The control panel body
@@ -280,16 +280,16 @@ is a separate function so a second page can be added later with a one-line chang
      red `#ff1744` offline banner; `font-family: 'Courier New', monospace` throughout;
      `2rem` font size for readback spans; input sized for 5 characters `52.00`).
    - Embeds the shared JavaScript block:
-     - `poll()` — `fetch('/api/state')` → parse JSON → update readback `<span>` elements
+     - `poll()` - `fetch('/api/state')` → parse JSON → update readback `<span>` elements
        and store confirmed set-point values in each input's `data-last` attribute (update
        `value` only when the field does not have focus, so in-progress typing is never
        overwritten) → show/hide the offline banner based on `modbusOk`.
-     - `submitField(el, path, param)` — POSTs `param=value` to `path`, on success briefly
+     - `submitField(el, path, param)` - POSTs `param=value` to `path`, on success briefly
        adds CSS class `ok` (green border for 1 s) to the input element.
-     - `keyHandler(event, path, param)` — called from each input's `onkeydown`:
+     - `keyHandler(event, path, param)` - called from each input's `onkeydown`:
        `Enter` → call `submitField`; `Escape` → restore `el.value` from `el.dataset.last`
        and blur the field.
-     - `toggleOutput()` and `toggleKeylock()` — read current state from a `data-state`
+     - `toggleOutput()` and `toggleKeylock()` - read current state from a `data-state`
        attribute, POST the inverse, immediately call `poll()`.
      - `window.onload = function() { poll(); setInterval(poll, 2000); };`
    - Closes `</head>` and opens `<body>`.
@@ -325,7 +325,7 @@ is a separate function so a second page can be added later with a one-line chang
 
 ---
 
-### Sub-Task 8.4 — Update `handleRoot()` and `setupServer()` in `Server.ino`
+### Sub-Task 8.4 - Update `handleRoot()` and `setupServer()` in `Server.ino`
 
 **Intent:** Slim down `handleRoot()` to a single call into `HtmlService`, register all new
 API routes, and remove the old superseded routes.
@@ -338,7 +338,7 @@ API routes, and remove the old superseded routes.
 - Serial Monitor startup log lists every registered route.
 
 **Todo List:**
-1. Rewrite `handleRoot()` — call `deviceState_read`, pass snapshot to `buildControlPanelPage`,
+1. Rewrite `handleRoot()` - call `deviceState_read`, pass snapshot to `buildControlPanelPage`,
    send result.
 2. Remove the old `handleGetVoltage` and `handleSetVoltage` functions.
 3. Remove their route registrations from `setupServer()`.
@@ -350,7 +350,7 @@ API routes, and remove the old superseded routes.
 
 **Status:** `[ ] pending`
 
-### Sub-Task 8.5 — End-to-end verification
+### Sub-Task 8.5 - End-to-end verification
 
 **Intent:** Confirm all UI interactions and API calls work correctly before Iteration 9 adds
 real threading.
@@ -381,13 +381,13 @@ real threading.
 
 ## What Is Explicitly Out of Scope for Iteration 8
 
-- **No dual-core threading** — the WebServer still runs in `loop()` on the Arduino default core.
+- **No dual-core threading** - the WebServer still runs in `loop()` on the Arduino default core.
   FreeRTOS task pinning is Iteration 9.
-- **No Xylink support** — `DeviceState` is still Riden-only.
-- **No persistent OVP/OCP** — protection values are not stored to NVS.
-- **No authentication** — the web page and API are open on the local network. Suitable for home
+- **No Xylink support** - `DeviceState` is still Riden-only.
+- **No persistent OVP/OCP** - protection values are not stored to NVS.
+- **No authentication** - the web page and API are open on the local network. Suitable for home
   lab use; security hardening is out of scope.
-- **No WebSockets** — decided against above; HTTP polling is sufficient given 1-second Modbus
+- **No WebSockets** - decided against above; HTTP polling is sufficient given 1-second Modbus
   poll rate and single-client use.
 
 ---

@@ -120,7 +120,7 @@ void WebSocketService::broadcastTask(void* param) {
     self->ws->textAll(json);
     self->ws->cleanupClients();
 
-    // Stable 1-second period — absorbs time spent in serialisation.
+    // Stable 1-second period - absorbs time spent in serialisation.
     // Java equivalent: Thread.sleep(BROADCAST_INTERVAL_MS).
     vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(BROADCAST_INTERVAL_MS));
   }
@@ -141,18 +141,18 @@ void WebSocketService::onEvent(AsyncWebSocket* server, AsyncWebSocketClient* cli
                                AwsEventType type, void* arg, uint8_t* data, size_t len) {
   switch (type) {
     case WS_EVT_CONNECT:
-      // Java equivalent: WebSocketService#onConnect — add client to set, log.
+      // Java equivalent: WebSocketService#onConnect - add client to set, log.
       ESP_LOGI(TAG_WS, "Client #%u connected from %s",
                client->id(), client->remoteIP().toString().c_str());
       break;
 
     case WS_EVT_DISCONNECT:
-      // Java equivalent: WebSocketService#onClose — remove client from set, log.
+      // Java equivalent: WebSocketService#onClose - remove client from set, log.
       ESP_LOGI(TAG_WS, "Client #%u disconnected.", client->id());
       break;
 
     case WS_EVT_ERROR:
-      // Java equivalent: WebSocketService#onError — normal on peer disconnect.
+      // Java equivalent: WebSocketService#onError - normal on peer disconnect.
       ESP_LOGW(TAG_WS, "Client #%u error.", client->id());
       break;
 
@@ -185,7 +185,7 @@ void WebSocketService::onEvent(AsyncWebSocket* server, AsyncWebSocketClient* cli
         break;
       }
 
-      // Dispatch each recognised key — matches Java onMessage key iteration order.
+      // Dispatch each recognised key - matches Java onMessage key iteration order.
       // xQueueOverwrite is used so the latest command always wins if the loop
       // hasn't drained the previous one yet (single-slot queue).
       bool dispatched = false;
@@ -222,10 +222,10 @@ void WebSocketService::onEvent(AsyncWebSocket* server, AsyncWebSocketClient* cli
         dispatched = true;
       }
 
-      // Log unrecognised keys at DEBUG — ignored, connection kept open.
+      // Log unrecognised keys at DEBUG - ignored, connection kept open.
       // Java equivalent: logger.debug("WebSocket message: unrecognised key '{}' - ignored.")
       if (!dispatched) {
-        ESP_LOGD(TAG_WS, "Client #%u message contained no recognised keys — ignored.", client->id());
+        ESP_LOGD(TAG_WS, "Client #%u message contained no recognised keys - ignored.", client->id());
       }
       break;
     }

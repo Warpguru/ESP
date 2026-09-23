@@ -8,7 +8,7 @@
  * Java equivalent: com.serial.modbus.ModbusConstants
  *
  * Replaces a Java utility class (private constructor, static final fields)
- * with a C++ namespace of constexpr constants — the idiomatic equivalent.
+ * with a C++ namespace of constexpr constants - the idiomatic equivalent.
  */
 namespace ModbusConstants {
 
@@ -27,7 +27,7 @@ constexpr uint8_t SLAVE_ADDRESS_1 = 0x01;
 
 /**
  * Read timeout in milliseconds.
- * 200 ms is generous for any supported device — real responses arrive in <50 ms.
+ * 200 ms is generous for any supported device - real responses arrive in <50 ms.
  * Keeping it low is critical during device detection: with 4 drivers × 5 baud
  * rates, a 1000 ms timeout would make a full scan take ~20 s and trip the TWDT.
  */

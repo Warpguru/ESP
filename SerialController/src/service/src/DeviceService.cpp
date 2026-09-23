@@ -13,7 +13,7 @@
 
 static const char* TAG_DS = "DEVICE_SVC";
 
-/** Polling interval — Java equivalent: POLL_INTERVAL_MS = 1000. */
+/** Polling interval - Java equivalent: POLL_INTERVAL_MS = 1000. */
 static constexpr uint32_t POLL_INTERVAL_MS = 1000;
 
 /**
@@ -319,7 +319,7 @@ void DeviceService::poll() {
     return;
   }
 
-  // Per-poll counters — static locals mirror the Java instance fields.
+  // Per-poll counters - static locals mirror the Java instance fields.
   // Java: private int consecutiveFailures / consecutiveSuccesses.
   static int consecutiveFailures = 0;
   static int consecutiveSuccesses = 0;
@@ -359,7 +359,7 @@ void DeviceService::poll() {
       _state->setManufacturer(_converter->getManufacturer());
     }
 
-    // Online/offline hysteresis — Java equivalent: consecutiveSuccesses tracking.
+    // Online/offline hysteresis - Java equivalent: consecutiveSuccesses tracking.
     if (!_state->isDeviceOnline()) {
       if (consecutiveSuccesses >= MAX_CONSECUTIVE_SUCCESSES) {
         consecutiveSuccesses = 0;

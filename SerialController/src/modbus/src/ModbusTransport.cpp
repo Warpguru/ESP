@@ -23,7 +23,7 @@
  * The static private helpers below (readRegister, readRegisters,
  * writeRegister, writeRegisters, readBytes, verifyCRC,
  * verifyResponseHeader) mirror the private methods of the Java class
- * exactly — same names, same logic. The only necessary deviations are:
+ * exactly - same names, same logic. The only necessary deviations are:
  *   - bool return instead of throws (no C++ exceptions on ESP32)
  *   - output values via reference / pointer parameters
  */
@@ -43,7 +43,7 @@ typedef enum {
   MB_OP_WRITE_REG,   // single-register write (fc 0x06)
   MB_OP_READ_REGS,   // bulk read             (fc 0x03, count > 1)
   MB_OP_WRITE_REGS,  // bulk write            (fc 0x10)
-  MB_OP_SET_BAUD,    // baud-rate change — Serial2.end()/begin() inside the task
+  MB_OP_SET_BAUD,    // baud-rate change - Serial2.end()/begin() inside the task
 } ModbusOp;
 
 typedef struct {
@@ -68,7 +68,7 @@ typedef struct {
 /**
  * Reads exactly n bytes from Serial2, blocking up to READ_TIMEOUT_MS.
  *
- * Java equivalent: ModbusTransport#readBytes — same partial-read accumulation loop.
+ * Java equivalent: ModbusTransport#readBytes - same partial-read accumulation loop.
  * Deviation: returns bool (false on timeout) instead of throwing RuntimeException.
  */
 static bool readBytes(uint8_t* buf, int n) {
@@ -109,9 +109,9 @@ static bool verifyCRC(const uint8_t* frame, int length) {
  * Validates the three-byte header of a Read Holding Registers response.
  *
  * Checks:
- *   resp[0] — slave address matches request slave
- *   resp[1] — function code is 0x03
- *   resp[2] — byte count equals expectedByteCount (count * 2)
+ *   resp[0] - slave address matches request slave
+ *   resp[1] - function code is 0x03
+ *   resp[2] - byte count equals expectedByteCount (count * 2)
  *
  * Java equivalent: ModbusTransport#verifyResponseHeader
  * Deviation: returns bool instead of throwing RuntimeException.
@@ -371,7 +371,7 @@ ModbusTransport::ModbusTransport(int rxPin, int txPin, int baud)
  * Java equivalent: ModbusTransport#reconnect
  */
 bool ModbusTransport::reconnect() {
-  // Reuse setBaud() with the current baud — this routes through the task
+  // Reuse setBaud() with the current baud - this routes through the task
   // queue, so Serial2.end()/begin() executes inside modbusTransportTask.
   setBaud(_baud);
   ESP_LOGI(TAG_MB, "Serial2 reconnected at %d baud.", _baud);
@@ -383,11 +383,11 @@ bool ModbusTransport::reconnect() {
  * Used by DeviceDetection to probe without reconstructing the transport.
  *
  * Java equivalent: new ModbusTransport(portName, baud) inside the
- * verifyDevicePresent() probing loop — C++ reconfigures in-place.
+ * verifyDevicePresent() probing loop - C++ reconfigures in-place.
  */
 void ModbusTransport::setBaud(int baud) {
   // Route through the task queue so the baud change is serialised with all
-  // other Serial2 operations — avoids Serial2.end() racing with readBytes().
+  // other Serial2 operations - avoids Serial2.end() racing with readBytes().
   QueueHandle_t respQ = xQueueCreate(1, sizeof(ModbusResponse));
 
   ModbusRequest req;

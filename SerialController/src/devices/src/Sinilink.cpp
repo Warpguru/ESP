@@ -60,7 +60,7 @@ static constexpr int KNOWN_MODELS_COUNT = (int)(sizeof(KNOWN_MODELS) / sizeof(KN
 /**
  * Community-reported lookup table: packed 0x59xx product model register values.
  * Java equivalent: Sinilink.REPORTED_MODELS
- * NOTE — community data, not factory-confirmed.
+ * NOTE - community data, not factory-confirmed.
  */
 static const SinilinkModelEntry REPORTED_MODELS[] = {
     {22792, "XY5008"},   // 0x5908 v0.8 variant
@@ -106,7 +106,7 @@ Sinilink::Sinilink(ModbusTransport* transport, uint8_t slave)
  * three-step strategy:
  *   1. KNOWN_MODELS exact match (factory-confirmed, no warning).
  *   2. If high byte = 0x59 ('Y'): consult REPORTED_MODELS (community data, WARN).
- *   3. If high byte = 0x59 but no match: log WARN and skip — do not guess.
+ *   3. If high byte = 0x59 but no match: log WARN and skip - do not guess.
  *
  * Sets manufacturer = "Sinilink" and device = model name on success.
  * Returns true if identified.
@@ -156,7 +156,7 @@ bool Sinilink::verifyDevicePresent() {
   return true;
 }
 
-// ---- DC2DCConverter interface — getDevice / getManufacturer -----------------
+// ---- DC2DCConverter interface - getDevice / getManufacturer -----------------
 
 const char* Sinilink::getDevice() {
   return ModbusDevice::getDevice();
@@ -191,9 +191,9 @@ bool Sinilink::pollAll() {
   cacheCurrentOut = IOUT.decode(r[3]);
   cachePowerOut = POUT.decode(r[4]);
   cacheVoltageIn = VIN.decode(r[5]);
-  // r[6..12]: AH/WH/timer counters — not used
+  // r[6..12]: AH/WH/timer counters - not used
   cacheTemperature = TEMP.decode(r[13]);
-  // r[14]: external temp — not used
+  // r[14]: external temp - not used
   cacheLock = r[15];
   cacheProtection = r[16];
   cacheMode = r[17];

@@ -113,7 +113,7 @@ class ConverterState {
  private:
   SemaphoreHandle_t mutex;
 
-  // Measured values — names match Java field names exactly
+  // Measured values - names match Java field names exactly
   double voltageOut = 0.0;
   double currentOut = 0.0;
   double powerOut = 0.0;

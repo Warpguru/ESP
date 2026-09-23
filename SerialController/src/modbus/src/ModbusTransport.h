@@ -10,7 +10,7 @@
  *
  * Owns the serial port (Serial2 on ESP32) and provides single-register and
  * bulk-register read/write operations. All Serial2 access must go through
- * this class — callers must never touch Serial2 directly.
+ * this class - callers must never touch Serial2 directly.
  *
  * Thread-safety design:
  *   All Serial2 I/O is handled exclusively by an internal FreeRTOS task
@@ -48,7 +48,7 @@ class ModbusTransport {
    * reconstructing the transport (and re-spawning a new FreeRTOS task).
    *
    * Java equivalent: constructing a new ModbusTransport(portName, baud) inside the
-   * verifyDevicePresent() probing loop — C++ reconfigures Serial2 in-place.
+   * verifyDevicePresent() probing loop - C++ reconfigures Serial2 in-place.
    *
    * @param baud new baud rate (e.g. ModbusConstants::BAUD_115200)
    */
@@ -127,7 +127,7 @@ class ModbusTransport {
   int _txPin;
   int _baud;
 
-  // FreeRTOS queue handle — receives ModbusRequest items from callers.
+  // FreeRTOS queue handle - receives ModbusRequest items from callers.
   // The internal modbusTask is the sole consumer; started in the constructor.
   void* _requestQueue;  // QueueHandle_t stored as void* to avoid Arduino.h in header
 

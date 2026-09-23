@@ -2,7 +2,7 @@
 
 ## Overview
 
-`Threads.ino` is a proof-of-concept Arduino sketch for the ESP32 that demonstrates safe concurrent programming across both physical CPU cores. Two independent FreeRTOS tasks run simultaneously — one blinks an LED on Core 1, the other prints statistics to the serial console on Core 0 — while a shared counter object is protected by a mutex so that neither task can corrupt the other's data. A physical button (GPIO 0, the built-in BOOT button on most DevKit boards) toggles the LED on and off at runtime, showing how the main Arduino task interacts with the background tasks through a second mutex. The sketch serves as a minimal, self-contained template for the task-isolation pattern that underpins reliable multi-core ESP32 firmware.
+`Threads.ino` is a proof-of-concept Arduino sketch for the ESP32 that demonstrates safe concurrent programming across both physical CPU cores. Two independent FreeRTOS tasks run simultaneously - one blinks an LED on Core 1, the other prints statistics to the serial console on Core 0 - while a shared counter object is protected by a mutex so that neither task can corrupt the other's data. A physical button (GPIO 0, the built-in BOOT button on most DevKit boards) toggles the LED on and off at runtime, showing how the main Arduino task interacts with the background tasks through a second mutex. The sketch serves as a minimal, self-contained template for the task-isolation pattern that underpins reliable multi-core ESP32 firmware.
 
 ## Technical Architecture
 
@@ -30,7 +30,7 @@ ESP32 GPIO 21 ──[220Ω]──▶|── GND
 
 **`SafeStats` class**
 
-A C++ class owns the two iteration counters (`core0Iterations`, `core1Iterations`) and their mutex. All access goes through four public methods — `incCore0()`, `incCore1()`, `getCounts()`, and `incCore0AndGetCounts()` — each of which acquires the mutex, performs its operation, and immediately releases it. This encapsulates the locking discipline inside the class so callers cannot accidentally bypass it.
+A C++ class owns the two iteration counters (`core0Iterations`, `core1Iterations`) and their mutex. All access goes through four public methods - `incCore0()`, `incCore1()`, `getCounts()`, and `incCore0AndGetCounts()` - each of which acquires the mutex, performs its operation, and immediately releases it. This encapsulates the locking discipline inside the class so callers cannot accidentally bypass it.
 
 **Task layout**
 
@@ -38,7 +38,7 @@ A C++ class owns the two iteration counters (`core0Iterations`, `core1Iterations
 |---|---|---|---|---|
 | `serialTaskCode` | 0 | 10 000 B | 1 | Increments the Core 0 counter, reads a snapshot of both counters, prints the result, sleeps 1 s |
 | `ledTaskCode` | 1 | 10 000 B | 1 | Increments the Core 1 counter, blinks the LED at 1 Hz when active or prints a waiting message at 2 Hz when inactive |
-| Arduino `loop` | 1 (shared) | — | — | Polls GPIO 0 for a falling edge and atomically flips `isLedActive` |
+| Arduino `loop` | 1 (shared) | - | - | Polls GPIO 0 for a falling edge and atomically flips `isLedActive` |
 
 ```mermaid
 graph TB
@@ -101,7 +101,7 @@ Instead of trying to make a library thread-safe, the standard "Pro" architecture
     * Task B (Core 1): "Owns" the ModBus object. No other thread ever touches it.
     * Communication: They talk to each other only through a Mutex-protected struct or a FreeRTOS Queue.
 
-This is the pattern used in this sketch: `SafeStats` is the shared data object, owned by neither task directly — both tasks access it only through its mutex-protected methods. In a WebServer/Modbus scenario, the WebServer task would read the stats (while holding the mutex) to display them on a page, while the Modbus task updates them.
+This is the pattern used in this sketch: `SafeStats` is the shared data object, owned by neither task directly - both tasks access it only through its mutex-protected methods. In a WebServer/Modbus scenario, the WebServer task would read the stats (while holding the mutex) to display them on a page, while the Modbus task updates them.
 
 3. The "Dangerous" Hardware Resources
 
@@ -109,7 +109,7 @@ On an ESP32, you must be particularly careful with shared hardware buses:
     * I2C / SPI: If you have an OLED on I2C and a Sensor on I2C, and you try to talk to them from different threads, the bus will lock up. You must use a Mutex to wrap the
      transaction.
     * Serial: `Serial.print` from two cores simultaneously results in garbled text, and in rare timing scenarios can corrupt the internal ring buffer and trigger an assertion failure. Always protect serial output with a mutex, as this sketch does.
-    * WiFi Stack: The underlying ESP-IDF WiFi driver and lwIP stack are internally synchronised and safe to call from any task. However, the higher-level Arduino `WiFiClient` wrapper maintains its own connection state and buffers that are not thread-safe — treat each `WiFiClient` instance as owned by a single task.
+    * WiFi Stack: The underlying ESP-IDF WiFi driver and lwIP stack are internally synchronised and safe to call from any task. However, the higher-level Arduino `WiFiClient` wrapper maintains its own connection state and buffers that are not thread-safe - treat each `WiFiClient` instance as owned by a single task.
 
 4. FreeRTOS Primitives are your Friends
 
@@ -120,4 +120,4 @@ Since the ESP32 runs FreeRTOS, you have powerful tools that Java developers woul
 
 ## Summary for your Project:
 
-Keep the WebServer and Modbus on separate cores — one task per core, each owning its library exclusively. Core assignment is a matter of preference; the WiFi radio driver and lwIP run their own internal tasks regardless of which core your application tasks use, so there is no technical requirement to pin the WebServer to Core 0 specifically. Use a mutex-protected struct or a FreeRTOS Queue to pass data between the two tasks. This keeps the code simple, prevents library corruption, and ensures that slow Modbus timing does not make the web interface feel laggy.
+Keep the WebServer and Modbus on separate cores - one task per core, each owning its library exclusively. Core assignment is a matter of preference; the WiFi radio driver and lwIP run their own internal tasks regardless of which core your application tasks use, so there is no technical requirement to pin the WebServer to Core 0 specifically. Use a mutex-protected struct or a FreeRTOS Queue to pass data between the two tasks. This keeps the code simple, prevents library corruption, and ensures that slow Modbus timing does not make the web interface feel laggy.

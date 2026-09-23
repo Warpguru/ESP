@@ -10,9 +10,9 @@
  * Java equivalent: com.serial.devices.RidenRD50xx
  *
  * Default baud rate 9600 (differs from RD60xx which defaults to 115200).
- * No temperature register — getTemperatureCelsius() returns -999.0.
+ * No temperature register - getTemperatureCelsius() returns -999.0.
  *
- * Wire connections — 4-pin TTL 3.3 V serial header (front-panel cutout or rear connector):
+ * Wire connections - 4-pin TTL 3.3 V serial header (front-panel cutout or rear connector):
  *   Black  (GND)  → adapter GND
  *   Blue   (RxD)  → adapter TxD  (device receives)
  *   Yellow (TxD)  → adapter RxD  (device transmits)
@@ -59,7 +59,7 @@ class RidenRD50xx : public ModbusDevice, public DC2DCConverter {
   bool reconnect() override;
 
  private:
-  // Poll cache — names match Java field names (see RidenRD50xx.java cache* fields)
+  // Poll cache - names match Java field names (see RidenRD50xx.java cache* fields)
   // Block: 0x0000–0x000C (13 registers)
   double cacheVoltageSet = 0.0;  // offset  0 VSET      ÷100
   double cacheCurrentSet = 0.0;  // offset  1 ISET      ÷100
@@ -71,7 +71,7 @@ class RidenRD50xx : public ModbusDevice, public DC2DCConverter {
   int cacheProtection = 0;       // offset  7 PROTECT   raw
   int cacheMode = 0;             // offset  8 MODE      raw
   int cacheOutput = 0;           // offset  9 OUTPUT    raw
-  // offset 10: backlight — not used
-  // offset 11: device ID — not used after detection
+  // offset 10: backlight - not used
+  // offset 11: device ID - not used after detection
   int cacheFirmwareRaw = 0;  // offset 12 FIRMWARE  raw (÷10 in getter)
 };

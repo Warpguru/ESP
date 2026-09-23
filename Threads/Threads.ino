@@ -107,7 +107,7 @@ void setup() {
     esp_restart();
   }
 
-  // No other tasks exist yet — no mutex needed for this print.
+  // No other tasks exist yet - no mutex needed for this print.
   Serial.println("\r\n--- Dual Core Threading: OOP Class Demo ---");
   
   pinMode(LED_PIN, OUTPUT);
@@ -167,7 +167,7 @@ void serialTaskCode(void * parameter) {
     uint32_t c0, c1;
     safeStats.incCore0AndGetCounts(c0, c1); // single lock: increment + consistent snapshot
 
-    // portMAX_DELAY: printing IS the job of this task — blocking until the
+    // portMAX_DELAY: printing IS the job of this task - blocking until the
     // mutex is available is correct; there is nothing else time-sensitive here.
     if (xSemaphoreTake(SerialMutex, portMAX_DELAY) == pdTRUE) {
       Serial.printf("[Core 0] Stats -> C0: %u | C1: %u\r\n", c0, c1);
@@ -187,7 +187,7 @@ void ledTaskCode(void * parameter) {
 
     if (isLedActive) {
       wasActive = true;
-      // Short timeout: printing is incidental — the LED timing must not stall
+      // Short timeout: printing is incidental - the LED timing must not stall
       // waiting for Core 0 to finish its stats print. Skip if mutex is busy.
       if (xSemaphoreTake(SerialMutex, (TickType_t) 10) == pdTRUE) {
         Serial.println("[Core 1] LED Blinking...");
@@ -203,7 +203,7 @@ void ledTaskCode(void * parameter) {
         wasActive = false;
       }
       
-      // Short timeout: same rationale as above — keep the idle loop responsive.
+      // Short timeout: same rationale as above - keep the idle loop responsive.
       if (xSemaphoreTake(SerialMutex, (TickType_t) 10) == pdTRUE) {
         Serial.println("[Core 1] Waiting for LED activation by Boot button...");
         xSemaphoreGive(SerialMutex);

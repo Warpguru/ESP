@@ -1,4 +1,4 @@
-# SerialController — ESP32
+# SerialController - ESP32
 
 A port of a Java desktop application to the ESP32 Arduino platform.
 The Java application controls DC/DC bench power supplies (Riden RD50xx/RD60xx,
@@ -26,20 +26,20 @@ Use **Sketch → Include Library → Manage Libraries…** and install:
 | ESPAsyncWebServer | ESP32Async | ≥ 3.12.1 |
 | AsyncTCP | ESP32Async | ≥ 3.5.0 |
 
-> `AsyncTCP` is a required dependency of `ESPAsyncWebServer` — install both.
+> `AsyncTCP` is a required dependency of `ESPAsyncWebServer` - install both.
 
 ---
 
 ## Hardware wiring
 
-### Serial2 — Modbus RTU to DC/DC converter
+### Serial2 - Modbus RTU to DC/DC converter
 
 | Signal | ESP32 GPIO | Wire (Riden 4-pin header) |
 |---|---|---|
-| UART2 RX (ESP32 receives) | 16 | Green — TxD on device |
-| UART2 TX (ESP32 transmits) | 17 | White — RxD on device |
+| UART2 RX (ESP32 receives) | 16 | Green - TxD on device |
+| UART2 TX (ESP32 transmits) | 17 | White - RxD on device |
 | GND | GND | Black |
-| VCC | **NC — do not connect** | Red |
+| VCC | **NC - do not connect** | Red |
 
 > The TTL header is 3.3 V. GPIO 16/17 are the default Serial2 pins on the
 > ESP32-WROOM-32. No level shifter is required.
@@ -51,7 +51,7 @@ underside of the control board (Black=GND, Green=RxD, Yellow=TxD, Red=VCC NC).
 
 | Signal | ESP32 GPIO |
 |---|---|
-| Onboard LED — SOS blink on WiFi or device-not-found failure | 2 |
+| Onboard LED - SOS blink on WiFi or device-not-found failure | 2 |
 
 ---
 
@@ -68,7 +68,8 @@ and reconnects automatically on subsequent boots.
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/` | HTML landing page with full API reference |
+| GET | `/` | Serial Controller live monitor UI (WebSocket-connected) |
+| GET | `/doc` | REST API reference page (all endpoints, curl examples) |
 | GET | `/api/state` | Full `ConverterState` snapshot (JSON) |
 | GET | `/api/limits` | Device capability limits (JSON) |
 | GET | `/api/measurements` | Output voltage, current, power (JSON) |
@@ -110,7 +111,7 @@ Clients may also send JSON commands:
 
 ```
 SerialController/
-├── SerialController.ino          Arduino IDE entry point (stub — delegates to Application)
+├── SerialController.ino          Arduino IDE entry point (stub - delegates to Application)
 ├── SerialController.cpp          PlatformIO entry point (#ifndef ARDUINO guard)
 ├── platformio.ini
 └── src/
@@ -121,7 +122,7 @@ SerialController/
     │   └── ModbusConstants.h
     ├── device/src/
     │   ├── base/
-    │   │   ├── ModbusDevice.h/.cpp   Abstract base — read/write helpers
+    │   │   ├── ModbusDevice.h/.cpp   Abstract base - read/write helpers
     │   │   └── DeviceRegister.h/.cpp Register descriptor (address, scale, name)
     │   ├── RidenRegistersRD60xx.h    Register address namespace for RD60xx
     │   ├── RidenRegistersRD50xx.h    Register address namespace for RD50xx
@@ -141,8 +142,10 @@ SerialController/
     │   ├── RestService.h/.cpp        All /api/* HTTP handlers
     │   └── WebSocketService.h/.cpp   1 s broadcast task + command queue
     └── SerialController/src/
-        ├── Application.h/.cpp        setup()/loop() — global singletons, wiring
+        ├── Application.h/.cpp        setup()/loop() - global singletons, wiring
         ├── Server.h/.cpp             WiFiManager, route registration, WS handler
+        ├── index_html.h              PROGMEM wrapper - #includes index_html.inc
+        ├── index_html.inc            Verbatim Java index.html in R"rawhtml(…)" literal
         ├── ActiveDevice.h            extern DC2DCConverter* activeDevice
         ├── ConverterStateGlobal.h    extern ConverterState converterState
         └── ESPInfo.h                 GET /status diagnostics helper
@@ -155,17 +158,17 @@ Java class to its C++ equivalent.
 
 | Java class | C++ equivalent |
 |---|---|
-| `ModbusTransport` | `ModbusTransport` — same framing logic; Serial2 I/O runs in a dedicated FreeRTOS task (see Threading below) |
-| `ModbusDevice` | `ModbusDevice` — same read/write/writeVerified helpers |
-| `DeviceRegister` | `DeviceRegister` — same address + scale descriptor |
-| `DC2DCConverter` (interface) | `DC2DCConverter` — pure abstract class |
+| `ModbusTransport` | `ModbusTransport` - same framing logic; Serial2 I/O runs in a dedicated FreeRTOS task (see Threading below) |
+| `ModbusDevice` | `ModbusDevice` - same read/write/writeVerified helpers |
+| `DeviceRegister` | `DeviceRegister` - same address + scale descriptor |
+| `DC2DCConverter` (interface) | `DC2DCConverter` - pure abstract class |
 | `RidenRD60xx` / `RidenRD50xx` / `Sinilink` / `Wuzhi` | Same-named concrete drivers |
-| `ConverterState` (volatile fields) | `ConverterState` — mutex-protected (see Mutex note below) |
+| `ConverterState` (volatile fields) | `ConverterState` - mutex-protected (see Mutex note below) |
 | `ConverterTopology` (enum) | `enum class ConverterTopology` |
-| `DeviceService` (polling thread) | `DeviceService` — FreeRTOS polling task |
-| `WebSocketService` (broadcaster thread) | `WebSocketService` — FreeRTOS broadcast task |
-| `RestService` (Javalin routes) | `RestService` — ESPAsyncWebServer handlers |
-| `SerialControllerApplication.main` | `Application.cpp` — `applicationSetup()` / `applicationLoop()` |
+| `DeviceService` (polling thread) | `DeviceService` - FreeRTOS polling task |
+| `WebSocketService` (broadcaster thread) | `WebSocketService` - FreeRTOS broadcast task |
+| `RestService` (Javalin routes) | `RestService` - ESPAsyncWebServer handlers |
+| `SerialControllerApplication.main` | `Application.cpp` - `applicationSetup()` / `applicationLoop()` |
 
 ---
 
@@ -177,8 +180,8 @@ Java class to its C++ equivalent.
 Core 0                                  Core 1
 ──────────────────────────────────────  ──────────────────────────────────────
 WiFi / lwIP stack (system)              Arduino main task: setup() → loop()
-ESPAsyncWebServer request callbacks       applicationSetup() — wiring
-modbusTransportTask (priority 2)          applicationLoop() — WS command drain
+ESPAsyncWebServer request callbacks       applicationSetup() - wiring
+modbusTransportTask (priority 2)          applicationLoop() - WS command drain
   └─ sole owner of Serial2             DeviceService pollingTask (priority 2)
        Serial2.read()                    WebSocketService broadcastTask (priority 1)
        Serial2.write()
@@ -190,7 +193,7 @@ modbusTransportTask (priority 2)          applicationLoop() — WS command drain
 
 The Java `ModbusTransport` calls `out.write()` / `in.read()` directly on the
 caller's thread. In Java, `DeviceService`'s `synchronized` keyword is the only
-concurrency guard — it prevents two threads from entering any method at the same
+concurrency guard - it prevents two threads from entering any method at the same
 time, so serial I/O is always single-threaded.
 
 On ESP32, the `ESPAsyncWebServer` delivers HTTP and WebSocket callbacks on
@@ -206,7 +209,7 @@ The chosen solution is a **single-owner task pattern**:
   call `transport->readRegister()` / `writeRegister()` etc., which enqueue a
   `ModbusRequest` on `_requestQueue` and block until `modbusTransportTask`
   returns the result via a per-call response queue.
-- The queue **is** the synchronisation mechanism — it serialises all Modbus
+- The queue **is** the synchronisation mechanism - it serialises all Modbus
   operations and guarantees exactly one is in flight at a time, matching the
   Java `synchronized` guarantee.
 - `modbusTransportTask` is pinned to **Core 0** so its `readBytes()` busy-wait
@@ -222,7 +225,7 @@ The chosen solution is a **single-owner task pattern**:
 no device is present. Each failed probe blocks the calling task for up to
 `READ_TIMEOUT_MS` while `modbusTransportTask` waits for a serial response.
 
-`READ_TIMEOUT_MS` is set to **100 ms** — well above the <50 ms actual device
+`READ_TIMEOUT_MS` is set to **100 ms** - well above the <50 ms actual device
 response time, and low enough that a full five-baud scan completes in ~2 seconds.
 
 `esp_task_wdt_reset()` is called at the start of each baud-rate iteration to
@@ -242,29 +245,29 @@ private volatile double voltageOut;
 ```
 
 In the C++ port every shared field is protected by a FreeRTOS mutex instead.
-This is not extra complexity — it is the direct equivalent of Java `volatile`
+This is not extra complexity - it is the direct equivalent of Java `volatile`
 on this hardware.
 
 ### Why `volatile` is sufficient in Java
 
 The Java Memory Model (JLS §17) gives `volatile` two guarantees:
 
-1. **Visibility** — a write is immediately flushed to main memory and visible to
+1. **Visibility** - a write is immediately flushed to main memory and visible to
    all threads on the next read.
-2. **Atomicity** — a single read or write of any `volatile` field (including
+2. **Atomicity** - a single read or write of any `volatile` field (including
    `double` and `long`) is atomic by specification (JLS §17.7).
 
 ### Why `volatile` is not enough on ESP32
 
 The ESP32 is a dual-core Xtensa LX6 processor. Its two cores have **separate L1
 data caches** with no hardware cache-coherency protocol mapping to Java's memory
-model. C++ `volatile` means only *"do not optimise this access away"* — it makes
+model. C++ `volatile` means only *"do not optimise this access away"* - it makes
 no promise about inter-core visibility or atomicity of 64-bit values.
 
 | Risk | Java | ESP32 C++ |
 |---|---|---|
-| **Torn 64-bit write** | Impossible — JLS §17.7 | Possible — a `double` write is two 32-bit stores; a task preempted between them produces a half-written value |
-| **Stale cache line** | Impossible — `volatile` flushes | Possible — Core 1 may read a value still cached from before Core 0 wrote it |
+| **Torn 64-bit write** | Impossible - JLS §17.7 | Possible - a `double` write is two 32-bit stores; a task preempted between them produces a half-written value |
+| **Stale cache line** | Impossible - `volatile` flushes | Possible - Core 1 may read a value still cached from before Core 0 wrote it |
 
 `xSemaphoreTake` / `xSemaphoreGive` solve both: they serialise access across
 cores **and** include the memory-barrier instructions that flush CPU caches.
@@ -320,7 +323,7 @@ All `ESP_LOG*` messages are transmitted on **UART0** (GPIO 1 TX). To read them
 without USB:
 
 1. Connect a **3.3 V USB-to-UART adapter** (CP2102, CH340, FT232, etc.).
-   **Do not use a 5 V adapter — GPIO 1/3 are not 5 V tolerant.**
+   **Do not use a 5 V adapter - GPIO 1/3 are not 5 V tolerant.**
 
 | Signal | ESP32 GPIO | Adapter pin |
 |---|---|---|
@@ -330,5 +333,5 @@ without USB:
 
 2. Open a terminal at **115200 baud, 8-N-1**.
 
-> While the adapter is connected, do not simultaneously connect USB — the two
+> While the adapter is connected, do not simultaneously connect USB - the two
 > drivers conflict. Disconnect the adapter before uploading firmware.

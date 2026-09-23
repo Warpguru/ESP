@@ -13,7 +13,7 @@
  * Different register layout from RD60xx:
  *   - 0x0000 = U-SET (voltage setpoint), not model ID.
  *   - 0x000B = MODEL (product number), detection register.
- *   - No temperature register — getTemperatureCelsius() returns -999.0.
+ *   - No temperature register - getTemperatureCelsius() returns -999.0.
  */
 
 static const char* TAG_RD5 = "RD50XX";
@@ -99,7 +99,7 @@ bool RidenRD50xx::verifyDevicePresent() {
 
   int fwRaw = 0;
   readInt(FWVR, fwRaw);
-  // fw == 0 is normal on DPS5020 factory batches — not a read error.
+  // fw == 0 is normal on DPS5020 factory batches - not a read error.
   if (fwRaw == 0) {
     ESP_LOGI(TAG_RD5, "Detected Ruideng DPS/RD50xx (Model: %s, FW: unknown) at slave %d.",
              modelName, slave);
@@ -110,7 +110,7 @@ bool RidenRD50xx::verifyDevicePresent() {
   return true;
 }
 
-// ---- DC2DCConverter interface — getDevice / getManufacturer -----------------
+// ---- DC2DCConverter interface - getDevice / getManufacturer -----------------
 
 const char* RidenRD50xx::getDevice() {
   return ModbusDevice::getDevice();
@@ -148,8 +148,8 @@ bool RidenRD50xx::pollAll() {
   cacheProtection = r[7];
   cacheMode = r[8];
   cacheOutput = r[9];
-  // r[10]: backlight — not used
-  // r[11]: device ID — not used after detection
+  // r[10]: backlight - not used
+  // r[11]: device ID - not used after detection
   cacheFirmwareRaw = r[12];
   return true;
 }
@@ -242,7 +242,7 @@ double RidenRD50xx::getTemperatureCelsius() {
 
 /**
  * Raw register / 10.0 = version (e.g. 17 = v1.7).
- * Several DPS5020 factory batches always return 0 — known hardware limitation.
+ * Several DPS5020 factory batches always return 0 - known hardware limitation.
  *
  * Java equivalent: RidenRD50xx#getFirmwareVersion
  */

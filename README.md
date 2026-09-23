@@ -1,4 +1,4 @@
-# ESP — SerialController
+# ESP - SerialController
 
 An ESP32-based controller for the **Riden RD5020 (DPS5020)** DC/DC power supply.
 The ESP32 speaks **Modbus RTU** over a hardware UART to the converter and exposes a
@@ -11,16 +11,16 @@ The ESP32 speaks **Modbus RTU** over a hardware UART to the converter and expose
 ```mermaid
 graph TD
     subgraph ESP32
-        subgraph Core0["Core 0 — taskWebServer"]
+        subgraph Core0["Core 0 - taskWebServer"]
             WS["WebServer :80\nREST API + HTML UI"]
         end
 
-        subgraph Core1["Core 1 — taskModbus"]
+        subgraph Core1["Core 1 - taskModbus"]
             MB["ModBus.ino\nSerial2 UART2\nModbus RTU poll"]
         end
 
         DS["DeviceState\nmutex-protected shared state"]
-        LOG["SerialStdout\nserialLog() — thread-safe\nCore x prefixed output"]
+        LOG["SerialStdout\nserialLog() - thread-safe\nCore x prefixed output"]
 
         WS -- "deviceState_read\ndeviceState_setPending" --> DS
         MB -- "deviceState_write\ndeviceState_takePending" --> DS
@@ -43,7 +43,7 @@ graph TD
 | Web server & API | `Server.ino` | WiFiManager, HTTP route registration, all request handlers |
 | HTML rendering | `HtmlService.ino` | Shared header/footer, control panel page |
 | Diagnostics | `DiagnosticsService.ino` | Hardware diagnostics JSON + diagnostics web page |
-| Logging | `SerialStdout.ino` | `serialLog()` — thread-safe, `[Core x]` prefixed Serial output |
+| Logging | `SerialStdout.ino` | `serialLog()` - thread-safe, `[Core x]` prefixed Serial output |
 
 ---
 
@@ -79,8 +79,8 @@ every subsequent boot. Call `GET /reset` to clear credentials and return to AP m
 graph LR
     subgraph ESP32["ESP32"]
         GND_ESP["GND"]
-        RX["GPIO 16 — RX2"]
-        TX["GPIO 17 — TX2"]
+        RX["GPIO 16 - RX2"]
+        TX["GPIO 17 - TX2"]
     end
 
     subgraph Riden["Riden RD5020"]
@@ -108,7 +108,7 @@ graph LR
 | 6 | `Iteration 6.md` | Basic web UI |
 | 7 | `Iteration 7.md` | Shared `DeviceState` struct + mutex accessors |
 | 8 | `Iteration 8.md` | Full web control panel + complete REST API + `HtmlService` |
-| 9 | `Iteration 9.md` | Dual-core split — WebServer on Core 0, Modbus on Core 1 + `SerialStdout` |
+| 9 | `Iteration 9.md` | Dual-core split - WebServer on Core 0, Modbus on Core 1 + `SerialStdout` |
 | 10 | `Iteration 10.md` | Hardware diagnostics API + diagnostics web page |
 
 ---

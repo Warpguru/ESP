@@ -52,7 +52,7 @@ void printSeparator() {
 }
 
 #if defined(ESP32)
-// Also defined in SerialController/ESPInfo.h — Arduino sketch isolation prevents sharing
+// Also defined in SerialController/ESPInfo.h - Arduino sketch isolation prevents sharing
 const char* getResetReasonString(esp_reset_reason_t reason) {
   switch (reason) {
     case ESP_RST_UNKNOWN:   return "Unknown";
@@ -70,7 +70,7 @@ const char* getResetReasonString(esp_reset_reason_t reason) {
   }
 }
 
-// Also defined in SerialController/ESPInfo.h — Arduino sketch isolation prevents sharing
+// Also defined in SerialController/ESPInfo.h - Arduino sketch isolation prevents sharing
 const char* getFlashModeString(uint32_t mode) {
   switch (mode) {
     case 0: return "QIO";
@@ -89,7 +89,7 @@ void setup() {
   #if defined(ESP32)
     Serial2.begin(115200, SERIAL_8N1, 16, 17); // RX:16, TX:17
   #endif
-  // NOTE: On ESP32/ESP8266, Serial (UART0) is always ready — this guard only
+  // NOTE: On ESP32/ESP8266, Serial (UART0) is always ready - this guard only
   // has effect on boards with USB-CDC serial (e.g. Leonardo, RP2040, ESP32-S2/S3
   // native USB). It is kept here for Arduino compatibility but is a no-op on
   // classic ESP32 and ESP8266.
@@ -156,7 +156,7 @@ void setup() {
   // Partition Table Info
   // esp_partition_next() advances the iterator in-place; it does NOT allocate a
   // new object. Releasing mid-loop frees the live iterator and corrupts the heap.
-  // Release once after the loop — esp_partition_iterator_release(NULL) is a
+  // Release once after the loop - esp_partition_iterator_release(NULL) is a
   // documented no-op when the loop exhausts the iterator naturally.
   printDual("\r\nPartition Table Map:\r\n");
   esp_partition_iterator_t it = esp_partition_find(ESP_PARTITION_TYPE_ANY, ESP_PARTITION_SUBTYPE_ANY, NULL);
@@ -227,7 +227,7 @@ void setup() {
 
 void loop() {
 // Only print live temperature on the same targets that support it in setup().
-// The outer ESP32 guard is intentionally NOT added here — doing so would
+// The outer ESP32 guard is intentionally NOT added here - doing so would
 // silently skip the line on ESP32 variants that do not define CONFIG_IDF_TARGET_*,
 // whereas the inner guard already covers exactly the right chips.
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)

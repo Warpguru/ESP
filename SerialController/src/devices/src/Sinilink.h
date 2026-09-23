@@ -9,7 +9,7 @@
  *
  * Java equivalent: com.serial.devices.Sinilink
  *
- * Wire connections — 4-pin TTL 3.3 V serial header on the underside of the control board:
+ * Wire connections - 4-pin TTL 3.3 V serial header on the underside of the control board:
  *   Black  (GND)  → adapter GND
  *   Green  (RxD)  → adapter TxD  (device receives)
  *   Yellow (TxD)  → adapter RxD  (device transmits)
@@ -26,7 +26,7 @@ class Sinilink : public ModbusDevice, public DC2DCConverter {
    * Sets manufacturer and device strings on success.
    * Returns true if the device was identified.
    *
-   * Java equivalent: Sinilink#verifyDevicePresent(List<Integer> bauds) — the inner
+   * Java equivalent: Sinilink#verifyDevicePresent(List<Integer> bauds) - the inner
    * probe body called once per baud rate. DeviceDetection drives the baud iteration.
    */
   bool verifyDevicePresent();
@@ -59,7 +59,7 @@ class Sinilink : public ModbusDevice, public DC2DCConverter {
   bool reconnect() override;
 
  private:
-  // Poll cache — names match Java field names (see Sinilink.java cache* fields)
+  // Poll cache - names match Java field names (see Sinilink.java cache* fields)
   // Block: 0x0000–0x0012 (19 registers)
   double cacheVoltageSet = 0.0;  // offset  0 VSET   ÷100
   double cacheCurrentSet = 0.0;  // offset  1 ISET   ÷1000
@@ -67,9 +67,9 @@ class Sinilink : public ModbusDevice, public DC2DCConverter {
   double cacheCurrentOut = 0.0;  // offset  3 IOUT   ÷1000
   double cachePowerOut = 0.0;    // offset  4 POUT   ÷100
   double cacheVoltageIn = 0.0;   // offset  5 VIN    ÷100
-  // offsets 6-12: AH/WH/timer counters — not used
+  // offsets 6-12: AH/WH/timer counters - not used
   double cacheTemperature = 0.0;  // offset 13 TEMP   ÷10
-  // offset 14: external temp — not used
+  // offset 14: external temp - not used
   int cacheLock = 0;        // offset 15 LOCK   raw
   int cacheProtection = 0;  // offset 16 PROT   raw
   int cacheMode = 0;        // offset 17 MODE   raw

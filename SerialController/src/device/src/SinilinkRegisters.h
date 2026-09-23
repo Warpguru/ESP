@@ -8,7 +8,7 @@
  * In Java this is a final class with only static final int constants and a private
  * constructor. In C++ the equivalent is a namespace of constexpr int constants.
  *
- * Scaling factors (see doc/SerialController.md — Register Scaling table):
+ * Scaling factors (see doc/SerialController.md - Register Scaling table):
  *   Voltage : raw / 100  = volts  (XY6008/XY6014 class)
  *   Current : raw / 1000 = amperes (XY6008/XY6014 class; XY6020L/XYH3680 use 100)
  *   Power   : raw / 100  = watts

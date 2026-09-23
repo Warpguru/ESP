@@ -18,8 +18,8 @@
  * Receive:  Incoming JSON commands from the browser are enqueued into a
  *           single-slot FreeRTOS queue and returned to the caller via
  *           dequeueCommand(). The Application loop drains this queue and
- *           executes the commands on Core 1 — the same task that owns the
- *           Modbus transport — avoiding any blocking call on the lwIP async TCP
+ *           executes the commands on Core 1 - the same task that owns the
+ *           Modbus transport - avoiding any blocking call on the lwIP async TCP
  *           task that delivers WS_EVT_DATA.
  *
  *           Java uses a direct synchronized call from the WS thread because JVM
@@ -67,7 +67,7 @@ class WebSocketService {
   /**
    * Attempts to dequeue one pending command from the command queue.
    * Returns true and fills cmd if a command is waiting; returns false immediately
-   * if the queue is empty. Non-blocking — safe to call every loop iteration.
+   * if the queue is empty. Non-blocking - safe to call every loop iteration.
    *
    * Called from Application.cpp's polling loop (Core 1) to execute commands on
    * the task that owns the Modbus transport.
@@ -78,7 +78,7 @@ class WebSocketService {
   bool dequeueCommand(WsCommand& cmd);
 
   /**
-   * WebSocket event handler — registered with AsyncWebSocket::onEvent().
+   * WebSocket event handler - registered with AsyncWebSocket::onEvent().
    * Handles connect, disconnect, error, and data events.
    *
    * Java equivalent: WebSocketService#onConnect / #onClose / #onError / #onMessage

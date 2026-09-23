@@ -16,15 +16,15 @@
  * also gates the poll task, matching the Java synchronized keyword.
  *
  * RestService calls these methods instead of touching activeDevice or
- * converterState directly — matching the Java layering exactly.
+ * converterState directly - matching the Java layering exactly.
  */
 class DeviceService {
  public:
   /**
    * Constructs the service.
    *
-   * @param state     shared converter state (owned externally — the global converterState)
-   * @param converter detected device driver (owned externally — the global activeDevice)
+   * @param state     shared converter state (owned externally - the global converterState)
+   * @param converter detected device driver (owned externally - the global activeDevice)
    *
    * Java equivalent: DeviceService constructor minus port detection (detection is
    * done in applicationSetup() before DeviceService is constructed here).
@@ -120,7 +120,7 @@ class DeviceService {
   ConverterState* _state;
   DC2DCConverter* _converter;
 
-  /** Serialises poll task and write operations — Java equivalent: synchronized. */
+  /** Serialises poll task and write operations - Java equivalent: synchronized. */
   SemaphoreHandle_t _mutex;
 
   /** millis() deadline before which poll must not overwrite voltageSet. */

@@ -18,22 +18,22 @@ The sketch is structured around the standard Arduino `setup()` / `loop()` lifecy
 
 | Category | ESP32 | ESP8266 |
 |---|---|---|
-| Chip model, revision, core count | ✅ | — |
+| Chip model, revision, core count | ✅ | - |
 | CPU frequency, reset reason | ✅ | ✅ |
-| Radio features (WiFi / BT / BLE / 802.15.4) | ✅ | — |
+| Radio features (WiFi / BT / BLE / 802.15.4) | ✅ | - |
 | Flash size, speed, mode | ✅ | ✅ |
 | Heap size, free heap, watermark, max alloc | ✅ | free only |
-| PSRAM (if present) | ✅ | — |
+| PSRAM (if present) | ✅ | - |
 | Sketch size, free sketch space | ✅ | ✅ |
-| Partition table map | ✅ | — |
-| Internal temperature | ✅ (selected targets) | — |
+| Partition table map | ✅ | - |
+| Internal temperature | ✅ (selected targets) | - |
 | CPU cycle count, SDK version | ✅ | ✅ |
 | EFuse MAC, STA MAC, AP MAC | ✅ | STA only |
 | Wi-Fi IP, subnet, gateway, RSSI | ✅ | ✅ |
 
 **Loop and sleep (`loop`)**
 
-On ESP32, `loop()` prints a single live temperature / free-heap line, flushes both UARTs, and calls `esp_deep_sleep_start()`. The chip powers down completely and is woken after five seconds by the RTC timer, which re-runs `setup()` from scratch. On ESP8266, `loop()` simply delays five seconds — deep sleep from `loop()` would prevent the serial output from completing before power-down.
+On ESP32, `loop()` prints a single live temperature / free-heap line, flushes both UARTs, and calls `esp_deep_sleep_start()`. The chip powers down completely and is woken after five seconds by the RTC timer, which re-runs `setup()` from scratch. On ESP8266, `loop()` simply delays five seconds - deep sleep from `loop()` would prevent the serial output from completing before power-down.
 
 **Compile-time portability**
 
@@ -41,7 +41,7 @@ All ESP32-specific code is guarded by `#if defined(ESP32)` / `#elif defined(ESP8
 
 ## Output
 
-Every 5 seconds the ESP wakes via an RTC timer wakeup. This is not a full hardware reset — the chip re-runs `setup()` from the beginning, but `esp_reset_reason()` reports `DEEPSLEEP_RESET` to indicate the cause.
+Every 5 seconds the ESP wakes via an RTC timer wakeup. This is not a full hardware reset - the chip re-runs `setup()` from the beginning, but `esp_reset_reason()` reports `DEEPSLEEP_RESET` to indicate the cause.
 The sketch outputs diagnostic data over the primary serial port on each wake cycle:
 
 ### ESP32-WROOM-32
@@ -289,7 +289,7 @@ Entering Deep Sleep for 5 seconds...
 ## Tools
 
 On ESP32, all output is mirrored to a second hardware UART (Serial2). Connect a USB-to-TTL serial adapter to tap this port without occupying the primary USB connection.
-A lightweight terminal such as [Termite](https://www.compuphase.com/software_termite.htm) works well — select the additional **COM** port and set the speed to **115200 baud**:
+A lightweight terminal such as [Termite](https://www.compuphase.com/software_termite.htm) works well - select the additional **COM** port and set the speed to **115200 baud**:
 
 ```
 ESP32 GND          → USB TTL (GND)
