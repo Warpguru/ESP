@@ -401,6 +401,70 @@ The chosen solution is a **single-owner task pattern**:
   `Serial2.end()`/`Serial2.begin()` always executes **inside** `modbusTransportTask`,
   never racing with an in-progress `readBytes()`.
 
+> **Tip:** VS Code's built-in Markdown preview renders Mermaid diagrams but uses an older bundled version of the library. For higher-fidelity rendering of any diagram below, paste the code block contents into **[mermaid.live](https://mermaid.live)**.
+
+### Runtime data flow
+
+```mermaid
+flowchart TB
+    subgraph BROWSER["Browser"]
+        UI["Live Monitor UI\n(WebSocket client)"]
+        REST["REST client\ncurl / Swagger UI"]
+    end
+
+    subgraph CORE0["Core 0"]
+        WIFI["WiFi / lwIP stack\n(system)"]
+        ASYNC["ESPAsyncWebServer\ncallbacks"]
+        MBTASK["modbusTransportTask\n(priority 2)\nSole owner of Serial2"]
+    end
+
+    subgraph CORE1["Core 1"]
+        LOOP["applicationLoop\nWS command drain"]
+        POLL["DeviceService\npollingTask\n(priority 2)"]
+        BCAST["WebSocketService\nbroadcastTask\n(priority 1)"]
+    end
+
+    subgraph STATE["ConverterState (shared)"]
+        CS["All fields protected\nby FreeRTOS mutex"]
+    end
+
+    SERIAL["Serial2\nModbus RTU\n(UART2)"]
+    DEVICE["DC/DC Converter\n(Riden / Sinilink /\nWuzhi)"]
+
+    %% Browser ↔ ESP32
+    UI -- "ws://.../ws/data\nJSON push every 1 s" --> ASYNC
+    UI -- "WS command\nsetVoltage / setOutput …" --> ASYNC
+    REST -- "HTTP GET/PUT/POST\n/api/*" --> ASYNC
+
+    %% Core 0 internal
+    WIFI --> ASYNC
+
+    %% HTTP handlers → ConverterState
+    ASYNC -- "GET /api/state etc.\nread under mutex" --> CS
+    ASYNC -- "PUT /api/voltage etc.\nwrite via DeviceService" --> LOOP
+
+    %% WS command → queue → loop → DeviceService
+    LOOP -- "dispatch\nvalidated write" --> POLL
+
+    %% DeviceService ↔ ConverterState
+    POLL -- "write measurements\nand status flags\nunder mutex" --> CS
+    CS -- "read setpoints\nand config\nunder mutex" --> POLL
+
+    %% DeviceService → Modbus queue → task → Serial2
+    POLL -- "ModbusRequest\non request queue" --> MBTASK
+    MBTASK -- "response\non reply queue" --> POLL
+    MBTASK -- "Serial2.read()\nSerial2.write()" --> SERIAL
+    SERIAL <-- "Modbus RTU\n9600 / 115200 baud" --> DEVICE
+
+    %% Broadcast reads ConverterState
+    CS -- "snapshot read\nevery 1 s" --> BCAST
+    BCAST -- "JSON push\nvia ws.textAll()" --> ASYNC
+```
+
+> **Read path** (GET): `ESPAsyncWebServer` callback (Core 0) takes the mutex, reads `ConverterState`, releases mutex, serialises JSON, sends response — entirely on Core 0, never touching Core 1.
+>
+> **Write path** (PUT / WS command): callback enqueues a validated write request → `DeviceService.pollingTask` (Core 1) dequeues it → posts a `ModbusRequest` → `modbusTransportTask` (Core 0) executes the Modbus write on Serial2 → on success, `ConverterState` is updated under mutex.
+
 ---
 
 ## Startup Sequence
