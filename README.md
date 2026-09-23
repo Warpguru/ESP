@@ -129,13 +129,16 @@ point named **SerialController**. Connect to it from any device and navigate to
 
 ## REST API
 
-Base URL: `http://<device-ip>`  
+Base URL: `http://<device-ip>`
 Interactive API reference: [`GET /doc`](http://<device-ip>/doc)
+OpenAPI 3.0 spec: [`GET /openapi.json`](http://<device-ip>/openapi.json) · Swagger UI: [`GET /openapi/ui`](http://<device-ip>/openapi/ui)
 
 | Method | Endpoint | Request body | Success | Error codes |
 |---|---|---|---|---|
 | `GET` | `/` | — | `200` Serial Controller live monitor UI | — |
 | `GET` | `/doc` | — | `200` REST API reference page | — |
+| `GET` | `/openapi.json` | — | `200` OpenAPI 3.0.0 specification (JSON) | — |
+| `GET` | `/openapi/ui` | — | `200` Interactive Swagger UI (CDN-backed) | — |
 | `GET` | `/api/state` | — | `200` full `ConverterState` JSON | — |
 | `GET` | `/api/limits` | — | `200` `LimitsResponse` JSON | — |
 | `GET` | `/api/measurements` | — | `200` `{"voltage":…,"current":…,"power":…}` | — |
@@ -194,6 +197,43 @@ Interactive API reference: [`GET /doc`](http://<device-ip>/doc)
 | `minCurrent` | number | Minimum current setpoint (A) |
 | `maxCurrent` | number | Maximum current setpoint (A) |
 | `maxPower` | number | Maximum power (W) |
+
+---
+
+## OpenAPI / Swagger UI
+
+The ESP32 serves a full [OpenAPI 3.0.0](https://spec.openapis.org/oas/v3.0.0) specification and an interactive Swagger UI explorer without any filesystem or partition changes.
+
+### How it works
+
+The spec ([`openapi_json.h`](SerialController/src/SerialController/src/openapi_json.h)) is a ~18 KB JSON document stored in flash as a `PROGMEM` string. It is served at `GET /openapi.json` via `send_P()`, so it occupies **zero bytes of DRAM** at runtime.
+
+The Swagger UI itself is **not bundled on the device**. `GET /openapi/ui` returns a ~700-byte HTML stub that instructs the browser to load the Swagger UI JavaScript and CSS from the `unpkg.com` CDN (`swagger-ui-dist@5.33.0`). The browser then fetches `/openapi.json` directly from the device to render the interactive explorer.
+
+```
+Browser                        ESP32                        unpkg.com
+  |                              |                              |
+  |-- GET /openapi/ui ---------->|                              |
+  |<-- 700-byte HTML stub -------|                              |
+  |                              |                              |
+  |-- GET swagger-ui-bundle.js -------------------------------->|
+  |<-- Swagger UI JS/CSS ---------------------------------------|
+  |                              |                              |
+  |-- GET /openapi.json -------->|                              |
+  |<-- 18 KB spec (from flash) --|                              |
+  |                              |                              |
+  | [Swagger UI renders in browser, calls live API endpoints]   |
+```
+
+> **Requirement:** the developer's browser needs internet access to reach `unpkg.com`. The ESP32 itself requires no outbound internet connection.
+
+### Flash and RAM cost
+
+| Item | Flash | DRAM |
+|---|---|---|
+| `OPENAPI_JSON` PROGMEM string | ~18 KB | 0 bytes |
+| Swagger UI HTML stub | ~0.7 KB | 0 bytes |
+| Swagger UI JS + CSS | 0 bytes (CDN) | 0 bytes |
 
 ---
 

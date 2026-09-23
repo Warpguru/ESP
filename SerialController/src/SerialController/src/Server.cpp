@@ -14,6 +14,7 @@
 #include "ESPInfo.h"
 #include "LogBuffer.h"
 #include "index_html.h"
+#include "openapi_json.h"
 
 /**
  * Server.cpp - WiFi initialisation, HTTP/WebSocket server wiring.
@@ -260,6 +261,9 @@ static void handleDoc(AsyncWebServerRequest* request) {
           " | Built: <strong>" __DATE__ " " __TIME__ "</strong></p>";
   html += "<p>Live monitor UI: <a href='/'><code>http://" + ip + "/</code></a></p>";
   html += "<p>WebSocket: <code>ws://" + ip + "/ws/data</code></p>";
+  html +=
+      "<p>OpenAPI spec: <a href='/openapi.json'><code>/openapi.json</code></a>"
+      " &nbsp;|&nbsp; Interactive explorer: <a href='/openapi/ui'><code>/openapi/ui</code></a></p>";
 
   html += "<h2>State &amp; Limits</h2>";
   html += "<div class='ep'><span class='m GET'>GET</span><a href='/api/state'><code>/api/state</code></a>";
@@ -321,6 +325,53 @@ static void handleDoc(AsyncWebServerRequest* request) {
   request->send(HTTP_CODE_OK, "text/html", html);
 }
 
+// ---- OpenAPI spec + Swagger UI ---------------------------------------------
+
+/**
+ * GET /openapi.json - OpenAPI 3.0.0 specification served from PROGMEM.
+ *
+ * Java equivalent: Javalin auto-generates /openapi from Javalin-OpenAPI annotations.
+ * On ESP32 the spec is hand-authored and stored in flash (openapi_json.h).
+ */
+static void handleGetOpenApiJson(AsyncWebServerRequest* request) {
+  Log_info("GET /openapi.json");
+  request->send_P(HTTP_CODE_OK, "application/json", OPENAPI_JSON);
+}
+
+/**
+ * GET /openapi/ui - Swagger UI loaded from unpkg CDN (swagger-ui-dist@5.33.0).
+ *
+ * The HTML stub is ~700 bytes. The browser fetches Swagger UI JS/CSS from
+ * unpkg.com and then fetches /openapi.json from this device. Requires the
+ * developer's browser to have internet access; the ESP32 itself does not.
+ *
+ * Java equivalent: Javalin serves Swagger UI at /openapi/ui from classpath statics.
+ */
+static void handleGetOpenApiUi(AsyncWebServerRequest* request) {
+  Log_info("GET /openapi/ui");
+  static const char UI_HTML[] =
+      "<!DOCTYPE html>"
+      "<html lang=\"en\"><head>"
+      "<meta charset=\"utf-8\"/>"
+      "<title>SerialController API</title>"
+      "<link rel=\"stylesheet\" href=\"https://unpkg.com/swagger-ui-dist@5.33.0/swagger-ui.css\"/>"
+      "</head><body>"
+      "<div id=\"swagger-ui\"></div>"
+      "<script src=\"https://unpkg.com/swagger-ui-dist@5.33.0/swagger-ui-bundle.js\"></script>"
+      "<script>"
+      "window.onload=()=>{"
+      "window.ui=SwaggerUIBundle({"
+      "url:'/openapi.json',"
+      "dom_id:'#swagger-ui',"
+      "presets:[SwaggerUIBundle.presets.apis,SwaggerUIBundle.SwaggerUIStandalonePreset],"
+      "layout:'BaseLayout'"
+      "});"
+      "};"
+      "</script>"
+      "</body></html>";
+  request->send(HTTP_CODE_OK, "text/html", UI_HTML);
+}
+
 // ---- setupServer -----------------------------------------------------------
 
 /**
@@ -356,6 +407,8 @@ void setupServer() {
   // Browser UI (Java reference) and API reference doc (ESP32-specific)
   server.on("/", AsyncWebRequestMethod::HTTP_GET, handleRoot);
   server.on("/doc", AsyncWebRequestMethod::HTTP_GET, handleDoc);
+  server.on("/openapi.json", AsyncWebRequestMethod::HTTP_GET, handleGetOpenApiJson);
+  server.on("/openapi/ui", AsyncWebRequestMethod::HTTP_GET, handleGetOpenApiUi);
   server.on("/api/log", AsyncWebRequestMethod::HTTP_GET, handleGetLog);
   server.on(
       "/api/log/level", AsyncWebRequestMethod::HTTP_PUT,
