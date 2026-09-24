@@ -173,14 +173,14 @@ void LogBufferClass::getJson(String& out) const {
   // No large stack allocation — ArduinoJson allocates on the heap.
   xSemaphoreTake(mutex, portMAX_DELAY);
 
-  int oldest = (count < LOG_BUFFER_LINES) ? 0 : head;
+  int oldestLineIndex = (count < LOG_BUFFER_LINES) ? 0 : head;
   int lineCount = count;
 
   JsonDocument doc;
   doc["level"] = activeLevel->name();
   JsonArray arr = doc["log"].to<JsonArray>();
-  for (int i = 0; i < lineCount; i++) {
-    int bufferIndex = (oldest + i) % LOG_BUFFER_LINES;
+  for (int lineOffset = 0; lineOffset < lineCount; lineOffset++) {
+    int bufferIndex = (oldestLineIndex + lineOffset) % LOG_BUFFER_LINES;
     arr.add(lines[bufferIndex]);
   }
 

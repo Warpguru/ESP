@@ -22,9 +22,9 @@ namespace ModbusCRC {
  */
 uint16_t calculate(const uint8_t* data, uint8_t len) {
   uint16_t crc = 0xFFFF;
-  for (int i = 0; i < len; i++) {
-    crc ^= (uint16_t)data[i];
-    for (int j = 0; j < 8; j++) {
+  for (int byteIndex = 0; byteIndex < len; byteIndex++) {
+    crc ^= (uint16_t)data[byteIndex];
+    for (int bitIndex = 0; bitIndex < 8; bitIndex++) {
       if ((crc & 0x0001) != 0) {
         crc >>= 1;
         crc ^= 0xA001;

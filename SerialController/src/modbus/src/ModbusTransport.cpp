@@ -48,9 +48,9 @@ typedef enum {
 typedef struct {
   ModbusOp op;
   uint8_t slave;
-  uint16_t startReg;
+  uint16_t startRegisterAddress;
   uint16_t writeValue;          // MB_OP_WRITE_REG: value to write
-  int newBaud;                  // MB_OP_SET_BAUD: new baud rate
+  int newBaudRate;              // MB_OP_SET_BAUD: new baud rate
   uint8_t count;                // MB_OP_READ_REGS / MB_OP_WRITE_REGS: register count
   uint16_t writeValues[32];     // MB_OP_WRITE_REGS: values to write (max 32)
   QueueHandle_t responseQueue;  // caller-owned single-slot response queue
@@ -348,20 +348,20 @@ static bool readRegisters(uint8_t slave, uint16_t startReg, uint8_t count, uint1
   Serial2.write(frame, 8);
 
   // Response: [slave][fc][byte_count][val_hi][val_lo]... × count [crc_lo][crc_hi]
-  int respLen = 3 + count * 2 + 2;
+  int responseLength = 3 + count * 2 + 2;
   uint8_t resp[3 + MAX_BULK_REGS * 2 + 2];
-  if (!readBytes(resp, respLen)) {
+  if (!readBytes(resp, responseLength)) {
     return false;
   }
-  logFrame("RX", resp, respLen);
-  if (!verifyCRC(resp, respLen)) {
+  logFrame("RX", resp, responseLength);
+  if (!verifyCRC(resp, responseLength)) {
     return false;
   }
   if (!verifyResponseHeader(resp, slave, (uint8_t)(count * 2))) {
     return false;
   }
-  for (int i = 0; i < count; i++) {
-    values[i] = ((uint16_t)resp[3 + i * 2] << 8) | resp[4 + i * 2];
+  for (int registerIndex = 0; registerIndex < count; registerIndex++) {
+    values[registerIndex] = ((uint16_t)resp[3 + registerIndex * 2] << 8) | resp[4 + registerIndex * 2];
   }
   return true;
 }
@@ -419,7 +419,7 @@ static bool writeRegister(uint8_t slave, uint16_t reg, uint16_t value) {
  */
 static bool writeRegisters(uint8_t slave, uint16_t startReg, const uint16_t* values, uint8_t count) {
   const uint8_t byteCount = count * 2;
-  const int frameLen = 7 + byteCount + 2;
+  const int frameLength = 7 + byteCount + 2;
   uint8_t frame[7 + 32 * 2 + 2];  // max 32 registers = 71 bytes
   frame[0] = slave;
   frame[1] = ModbusFunctionCodes::WRITE_MULTIPLE_REGISTERS;
@@ -428,19 +428,19 @@ static bool writeRegisters(uint8_t slave, uint16_t startReg, const uint16_t* val
   frame[4] = (uint8_t)(count >> 8);
   frame[5] = (uint8_t)count;
   frame[6] = byteCount;
-  for (int i = 0; i < count; i++) {
-    frame[7 + i * 2] = (uint8_t)(values[i] >> 8);
-    frame[7 + i * 2 + 1] = (uint8_t)values[i];
+  for (int registerIndex = 0; registerIndex < count; registerIndex++) {
+    frame[7 + registerIndex * 2] = (uint8_t)(values[registerIndex] >> 8);
+    frame[7 + registerIndex * 2 + 1] = (uint8_t)values[registerIndex];
   }
-  uint16_t crc = ModbusCRC::calculate(frame, (uint8_t)(frameLen - 2));
-  frame[frameLen - 2] = (uint8_t)crc;
-  frame[frameLen - 1] = (uint8_t)(crc >> 8);
+  uint16_t crc = ModbusCRC::calculate(frame, (uint8_t)(frameLength - 2));
+  frame[frameLength - 2] = (uint8_t)crc;
+  frame[frameLength - 1] = (uint8_t)(crc >> 8);
 
-  logFrame("TX", frame, frameLen);
+  logFrame("TX", frame, frameLength);
   while (Serial2.available()) {
     Serial2.read();
   }
-  Serial2.write(frame, frameLen);
+  Serial2.write(frame, frameLength);
 
   // Response: [slave][0x10][start_hi][start_lo][qty_hi][qty_lo][crc_lo][crc_hi]
   uint8_t resp[8];
@@ -473,22 +473,22 @@ void modbusTransportTask(void* param) {
 
       switch (req.op) {
         case MB_OP_READ_REG:
-          resp.success = readRegister(req.slave, req.startReg, resp.values[0]);
+          resp.success = readRegister(req.slave, req.startRegisterAddress, resp.values[0]);
           break;
         case MB_OP_READ_REGS:
-          resp.success = readRegisters(req.slave, req.startReg, req.count, resp.values);
+          resp.success = readRegisters(req.slave, req.startRegisterAddress, req.count, resp.values);
           break;
         case MB_OP_WRITE_REG:
-          resp.success = writeRegister(req.slave, req.startReg, req.writeValue);
+          resp.success = writeRegister(req.slave, req.startRegisterAddress, req.writeValue);
           break;
         case MB_OP_WRITE_REGS:
-          resp.success = writeRegisters(req.slave, req.startReg, req.writeValues, req.count);
+          resp.success = writeRegisters(req.slave, req.startRegisterAddress, req.writeValues, req.count);
           break;
         case MB_OP_SET_BAUD:
           // Reconfigure Serial2 from inside the task so no other operation
           // can interleave with Serial2.end() / Serial2.begin().
           Serial2.end();
-          self->_baud = req.newBaud;
+          self->_baud = req.newBaudRate;
           Serial2.begin(self->_baud, SERIAL_8N1, self->_rxPin, self->_txPin);
           Log_info("Serial2 re-opened at %d baud (setBaud via task).", self->_baud);
           resp.success = true;
@@ -541,7 +541,7 @@ void ModbusTransport::setBaud(int baud) {
 
   ModbusRequest req;
   req.op = MB_OP_SET_BAUD;
-  req.newBaud = baud;
+  req.newBaudRate = baud;
   req.responseQueue = respQ;
 
   xQueueSend(static_cast<QueueHandle_t>(_requestQueue), &req, portMAX_DELAY);
@@ -562,7 +562,7 @@ bool ModbusTransport::readRegister(uint8_t slave, uint16_t reg, uint16_t& value)
   ModbusRequest req;
   req.op = MB_OP_READ_REG;
   req.slave = slave;
-  req.startReg = reg;
+  req.startRegisterAddress = reg;
   req.writeValue = 0;
   req.count = 1;
   req.responseQueue = respQ;
@@ -594,7 +594,7 @@ bool ModbusTransport::readRegisters(uint8_t slave, uint16_t startAddress, uint8_
   ModbusRequest req;
   req.op = MB_OP_READ_REGS;
   req.slave = slave;
-  req.startReg = startAddress;
+  req.startRegisterAddress = startAddress;
   req.count = count;
   req.responseQueue = respQ;
 
@@ -609,8 +609,8 @@ bool ModbusTransport::readRegisters(uint8_t slave, uint16_t startAddress, uint8_
     return false;
   }
   if (resp.success) {
-    for (int i = 0; i < count; i++) {
-      values[i] = resp.values[i];
+    for (int registerIndex = 0; registerIndex < count; registerIndex++) {
+      values[registerIndex] = resp.values[registerIndex];
     }
   }
   return resp.success;
@@ -627,7 +627,7 @@ bool ModbusTransport::writeRegister(uint8_t slave, uint16_t reg, uint16_t value)
   ModbusRequest req;
   req.op = MB_OP_WRITE_REG;
   req.slave = slave;
-  req.startReg = reg;
+  req.startRegisterAddress = reg;
   req.writeValue = value;
   req.count = 1;
   req.responseQueue = respQ;
@@ -656,10 +656,10 @@ bool ModbusTransport::writeRegisters(uint8_t slave, uint16_t startAddress, const
   ModbusRequest req;
   req.op = MB_OP_WRITE_REGS;
   req.slave = slave;
-  req.startReg = startAddress;
+  req.startRegisterAddress = startAddress;
   req.count = count;
-  for (int i = 0; i < count; i++) {
-    req.writeValues[i] = values[i];
+  for (int registerIndex = 0; registerIndex < count; registerIndex++) {
+    req.writeValues[registerIndex] = values[registerIndex];
   }
   req.responseQueue = respQ;
 

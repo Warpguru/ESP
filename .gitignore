@@ -76,3 +76,4 @@ Testing/
 
 # Symlink to Java implementation
 /Template
+/.bob/

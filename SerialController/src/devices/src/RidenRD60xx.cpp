@@ -80,9 +80,9 @@ static constexpr int KNOWN_DEVICE_IDS_COUNT =
  * Java equivalent: KNOWN_DEVICE_IDS.get(deviceId)
  */
 static const char* lookupDeviceId(int id) {
-  for (int i = 0; i < KNOWN_DEVICE_IDS_COUNT; i++) {
-    if (KNOWN_DEVICE_IDS[i].id == id) {
-      return KNOWN_DEVICE_IDS[i].name;
+  for (int deviceIndex = 0; deviceIndex < KNOWN_DEVICE_IDS_COUNT; deviceIndex++) {
+    if (KNOWN_DEVICE_IDS[deviceIndex].id == id) {
+      return KNOWN_DEVICE_IDS[deviceIndex].name;
     }
   }
   return nullptr;

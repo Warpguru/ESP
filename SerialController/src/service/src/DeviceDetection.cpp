@@ -58,8 +58,8 @@ static DC2DCConverter* probeDrivers(
     uint8_t slave,
     const int* bauds,
     int baudCount) {
-  for (int i = 0; i < baudCount; i++) {
-    int baud = bauds[i];
+  for (int baudIndex = 0; baudIndex < baudCount; baudIndex++) {
+    int baud = bauds[baudIndex];
     Log_info("Probing at %d baud...", baud);
 
     // Yield for one tick between baud-rate iterations. This keeps the FreeRTOS

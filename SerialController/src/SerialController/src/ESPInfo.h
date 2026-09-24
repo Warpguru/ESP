@@ -73,24 +73,24 @@ inline const char* getFlashModeString(uint32_t mode) {
  * Called from Server.cpp's GET /status handler.
  */
 inline void fillESPInfo(JsonObject obj) {
-  esp_chip_info_t chip_info;
-  esp_chip_info(&chip_info);
+  esp_chip_info_t chipInfo;
+  esp_chip_info(&chipInfo);
 
   // Features string construction
   String features = "";
-  if (chip_info.features & CHIP_FEATURE_WIFI_BGN) {
+  if (chipInfo.features & CHIP_FEATURE_WIFI_BGN) {
     features += "WiFi ";
   }
-  if (chip_info.features & CHIP_FEATURE_BT) {
+  if (chipInfo.features & CHIP_FEATURE_BT) {
     features += "BT ";
   }
-  if (chip_info.features & CHIP_FEATURE_BLE) {
+  if (chipInfo.features & CHIP_FEATURE_BLE) {
     features += "BLE ";
   }
-  if (chip_info.features & CHIP_FEATURE_IEEE802154) {
+  if (chipInfo.features & CHIP_FEATURE_IEEE802154) {
     features += "802.15.4 ";
   }
-  if (chip_info.features & CHIP_FEATURE_EMB_FLASH) {
+  if (chipInfo.features & CHIP_FEATURE_EMB_FLASH) {
     features += "Embedded-Flash";
   } else {
     features += "External-Flash";
@@ -108,7 +108,7 @@ inline void fillESPInfo(JsonObject obj) {
   JsonObject chip = obj["chip"].to<JsonObject>();
   chip["model"] = ESP.getChipModel();
   chip["revision"] = ESP.getChipRevision();
-  chip["cores"] = chip_info.cores;
+  chip["cores"] = chipInfo.cores;
   chip["cpuFreqMHz"] = ESP.getCpuFreqMHz();
   chip["resetReason"] = getResetReasonString(esp_reset_reason());
   chip["features"] = features;

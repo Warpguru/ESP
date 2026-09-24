@@ -23,33 +23,33 @@ StatusLed statusLed;
  * Called repeatedly by ledTask while in FAULT state.
  */
 void StatusLed::blinkSOS(int pin) {
-  const int dot = 150;
-  const int dash = 450;
-  const int gap = 150;
-  const int word = 700;
+  const int dotDurationMs = 150;
+  const int dashDurationMs = 450;
+  const int symbolGapMs = 150;
+  const int wordGapMs = 700;
 
   // Three dots
-  for (int i = 0; i < 3; i++) {
+  for (int pulseIndex = 0; pulseIndex < 3; pulseIndex++) {
     digitalWrite(pin, HIGH);
-    delay(dot);
+    delay(dotDurationMs);
     digitalWrite(pin, LOW);
-    delay(gap);
+    delay(symbolGapMs);
   }
-  delay(word);
+  delay(wordGapMs);
   // Three dashes
-  for (int i = 0; i < 3; i++) {
+  for (int pulseIndex = 0; pulseIndex < 3; pulseIndex++) {
     digitalWrite(pin, HIGH);
-    delay(dash);
+    delay(dashDurationMs);
     digitalWrite(pin, LOW);
-    delay(gap);
+    delay(symbolGapMs);
   }
-  delay(word);
+  delay(wordGapMs);
   // Three dots
-  for (int i = 0; i < 3; i++) {
+  for (int pulseIndex = 0; pulseIndex < 3; pulseIndex++) {
     digitalWrite(pin, HIGH);
-    delay(dot);
+    delay(dotDurationMs);
     digitalWrite(pin, LOW);
-    delay(gap);
+    delay(symbolGapMs);
   }
   delay(2000);
 }

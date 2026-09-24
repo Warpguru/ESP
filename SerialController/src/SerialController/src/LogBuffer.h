@@ -64,11 +64,15 @@ class LogLevel {
  public:
   // Log4j2-compatible integer ordering: higher = less severe.
   // levelOrdinal field stores the value; levelOrdinal() method exposes it.
-  int levelOrdinal() const { return levelOrdinalValue; }
+  int levelOrdinal() const {
+    return levelOrdinalValue;
+  }
 
   // Canonical bare name, e.g. "INFO". Used for NVS, API, and comparisons.
   // Java equivalent: LogLevel.name()
-  const char* name() const { return levelName; }
+  const char* name() const {
+    return levelName;
+  }
 
   // The five canonical instances — mirrors Java enum constants.
   static const LogLevel TRACE;
