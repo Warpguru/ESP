@@ -4,6 +4,8 @@
 #include <freertos/task.h>
 
 #include "../../../src/SerialController/src/LogBuffer.h"
+#include "../../../src/SerialController/src/StatusLed.h"
+#include "../../device/src/DeviceCatalogue.h"
 
 /**
  * DeviceService.cpp - Service layer for device polling and validated setpoint writes.
@@ -50,11 +52,77 @@ static constexpr int MAX_CONSECUTIVE_SUCCESSES = 1;
  */
 static constexpr double BUCK_DROPOUT_V = 1.0;
 
+/**
+ * Returns the string name of a ConverterTopology enum value for logging.
+ * Java equivalent: ConverterTopology.name() (enum toString).
+ */
+static const char* topologyName(ConverterTopology topology) {
+  switch (topology) {
+    case ConverterTopology::BUCK:       return "BUCK";
+    case ConverterTopology::BOOST:      return "BOOST";
+    case ConverterTopology::BUCK_BOOST: return "BUCK_BOOST";
+    default:                            return "UNKNOWN";
+  }
+}
+
+// ---- loadLimits ------------------------------------------------------------
+
+/**
+ * Loads device capability limits from the compile-time catalogue and applies
+ * them to ConverterState. Called once after construction, before begin().
+ *
+ * Looks up the device name string returned by the detected driver in the
+ * CATALOGUE array. On a match, sets maxVoltage / minVoltage / maxCurrent /
+ * minCurrent / maxPower / converterTopology on ConverterState. Also sets
+ * deviceName and manufacturer from the catalogue entry so that ConverterState
+ * is fully populated before the first poll cycle.
+ *
+ * If no entry is found a warning is logged and all limits remain at 0, which
+ * prevents any setpoint write from being accepted - matching Java's behaviour
+ * when the properties file is absent.
+ *
+ * Java equivalent: DeviceService#loadLimits()
+ */
+void DeviceService::loadLimits() {
+  if (converter == nullptr) {
+    Log_warn("No device detected - skipping limits load. All limits remain at 0.");
+    return;
+  }
+
+  const char* deviceName = converter->getDevice();
+  if (deviceName == nullptr) {
+    Log_warn("Could not determine device name - skipping limits load.");
+    return;
+  }
+
+  const DeviceLimits* limits = findDeviceLimits(deviceName);
+  if (limits == nullptr) {
+    Log_warn("No catalogue entry for device '%s'. All limits remain at 0.", deviceName);
+    return;
+  }
+
+  state->setDeviceName(limits->name);
+  state->setManufacturer(limits->manufacturer);
+  state->setMaxVoltage(limits->maxVoltageVolts);
+  state->setMinVoltage(limits->minVoltageVolts);
+  state->setMaxCurrent(limits->maxCurrentAmperes);
+  state->setMinCurrent(limits->minCurrentAmperes);
+  state->setMaxPower(limits->maxPowerWatts);
+  state->setConverterTopology(limits->topology);
+
+  Log_info("Device limits loaded: %s %s | topology=%s V=[%.1f, %.1f] A=[%.1f, %.1f] P_max=%.1fW",
+           limits->manufacturer, limits->name,
+           topologyName(limits->topology),
+           limits->minVoltageVolts, limits->maxVoltageVolts,
+           limits->minCurrentAmperes, limits->maxCurrentAmperes,
+           limits->maxPowerWatts);
+}
+
 // ---- Constructor -----------------------------------------------------------
 
 DeviceService::DeviceService(ConverterState* state, DC2DCConverter* converter)
-    : _state(state), _converter(converter) {
-  _mutex = xSemaphoreCreateMutex();
+    : state(state), converter(converter) {
+  mutex = xSemaphoreCreateMutex();
 }
 
 // ---- begin -----------------------------------------------------------------
@@ -77,13 +145,13 @@ void DeviceService::begin() {
  * Java equivalent: DeviceService#isDeviceDetected
  */
 bool DeviceService::isDeviceDetected() const {
-  return (_converter != nullptr) && (_converter->getDevice() != nullptr);
+  return (converter != nullptr) && (converter->getDevice() != nullptr);
 }
 
 // ---- getState --------------------------------------------------------------
 
 const ConverterState* DeviceService::getState() const {
-  return _state;
+  return state;
 }
 
 // ---- setVoltage ------------------------------------------------------------
@@ -95,21 +163,21 @@ const ConverterState* DeviceService::getState() const {
  * Deviation: bool return instead of void/throws; mutex instead of synchronized.
  */
 bool DeviceService::setVoltage(double volts) {
-  if (_converter == nullptr) {
+  if (converter == nullptr) {
     return false;
   }
   double maxV = effectiveMaxVoltage();
-  if (!validateRange("Voltage", volts, _state->getMinVoltage(), maxV)) {
+  if (!validateRange("Voltage", volts, state->getMinVoltage(), maxV)) {
     return false;
   }
-  xSemaphoreTake(_mutex, portMAX_DELAY);
+  xSemaphoreTake(mutex, portMAX_DELAY);
   Log_info("Setting voltage to %.3f V", volts);
-  bool ok = _converter->setVoltage(volts);
+  bool ok = converter->setVoltage(volts);
   if (ok) {
-    _state->setVoltageSet(volts);
-    _voltagePendingUntil = millis() + SETPOINT_SETTLE_MS;
+    state->setVoltageSet(volts);
+    voltagePendingUntil = millis() + SETPOINT_SETTLE_MS;
   }
-  xSemaphoreGive(_mutex);
+  xSemaphoreGive(mutex);
   return ok;
 }
 
@@ -124,38 +192,38 @@ bool DeviceService::setVoltage(double volts) {
  */
 bool DeviceService::setVoltageVerified(double volts, double& confirmedOut, bool& outConflict) {
   outConflict = false;
-  if (_converter == nullptr) {
+  if (converter == nullptr) {
     return false;
   }
   double maxV = effectiveMaxVoltage();
-  if (!validateRange("Voltage", volts, _state->getMinVoltage(), maxV)) {
+  if (!validateRange("Voltage", volts, state->getMinVoltage(), maxV)) {
     return false;
   }
-  xSemaphoreTake(_mutex, portMAX_DELAY);
+  xSemaphoreTake(mutex, portMAX_DELAY);
   Log_info("setVoltageVerified: writing %.3f V", volts);
-  bool ok = _converter->setVoltage(volts);
+  bool ok = converter->setVoltage(volts);
   if (!ok) {
-    xSemaphoreGive(_mutex);
+    xSemaphoreGive(mutex);
     return false;
   }
-  _voltagePendingUntil = millis() + SETPOINT_SETTLE_MS;
+  voltagePendingUntil = millis() + SETPOINT_SETTLE_MS;
   vTaskDelay(pdMS_TO_TICKS(VERIFIED_READBACK_DELAY_MS));
-  double confirmed = _converter->getVoltageSetVerified();
+  double confirmed = converter->getVoltageSetVerified();
   if (fabs(confirmed - volts) > VERIFIED_TOLERANCE) {
     Log_debug("setVoltageVerified: first read-back %.3f, retrying", confirmed);
     vTaskDelay(pdMS_TO_TICKS(VERIFIED_READBACK_DELAY_MS));
-    confirmed = _converter->getVoltageSetVerified();
+    confirmed = converter->getVoltageSetVerified();
     if (fabs(confirmed - volts) > VERIFIED_TOLERANCE) {
       Log_warn("setVoltageVerified: device did not accept %.3f V (read back %.3f V)", volts, confirmed);
       outConflict = true;
-      xSemaphoreGive(_mutex);
+      xSemaphoreGive(mutex);
       return false;
     }
   }
   Log_info("setVoltageVerified: confirmed %.3f V", confirmed);
-  _state->setVoltageSet(confirmed);
+  state->setVoltageSet(confirmed);
   confirmedOut = confirmed;
-  xSemaphoreGive(_mutex);
+  xSemaphoreGive(mutex);
   return true;
 }
 
@@ -165,21 +233,21 @@ bool DeviceService::setVoltageVerified(double volts, double& confirmedOut, bool&
  * Java equivalent: DeviceService#setCurrent (synchronized)
  */
 bool DeviceService::setCurrent(double amperes) {
-  if (_converter == nullptr) {
+  if (converter == nullptr) {
     return false;
   }
   double maxI = effectiveMaxCurrent();
-  if (!validateRange("Current", amperes, _state->getMinCurrent(), maxI)) {
+  if (!validateRange("Current", amperes, state->getMinCurrent(), maxI)) {
     return false;
   }
-  xSemaphoreTake(_mutex, portMAX_DELAY);
+  xSemaphoreTake(mutex, portMAX_DELAY);
   Log_info("Setting current to %.3f A", amperes);
-  bool ok = _converter->setCurrent(amperes);
+  bool ok = converter->setCurrent(amperes);
   if (ok) {
-    _state->setCurrentSet(amperes);
-    _currentPendingUntil = millis() + SETPOINT_SETTLE_MS;
+    state->setCurrentSet(amperes);
+    currentPendingUntil = millis() + SETPOINT_SETTLE_MS;
   }
-  xSemaphoreGive(_mutex);
+  xSemaphoreGive(mutex);
   return ok;
 }
 
@@ -190,38 +258,38 @@ bool DeviceService::setCurrent(double amperes) {
  */
 bool DeviceService::setCurrentVerified(double amperes, double& confirmedOut, bool& outConflict) {
   outConflict = false;
-  if (_converter == nullptr) {
+  if (converter == nullptr) {
     return false;
   }
   double maxI = effectiveMaxCurrent();
-  if (!validateRange("Current", amperes, _state->getMinCurrent(), maxI)) {
+  if (!validateRange("Current", amperes, state->getMinCurrent(), maxI)) {
     return false;
   }
-  xSemaphoreTake(_mutex, portMAX_DELAY);
+  xSemaphoreTake(mutex, portMAX_DELAY);
   Log_info("setCurrentVerified: writing %.3f A", amperes);
-  bool ok = _converter->setCurrent(amperes);
+  bool ok = converter->setCurrent(amperes);
   if (!ok) {
-    xSemaphoreGive(_mutex);
+    xSemaphoreGive(mutex);
     return false;
   }
-  _currentPendingUntil = millis() + SETPOINT_SETTLE_MS;
+  currentPendingUntil = millis() + SETPOINT_SETTLE_MS;
   vTaskDelay(pdMS_TO_TICKS(VERIFIED_READBACK_DELAY_MS));
-  double confirmed = _converter->getCurrentSetVerified();
+  double confirmed = converter->getCurrentSetVerified();
   if (fabs(confirmed - amperes) > VERIFIED_TOLERANCE) {
     Log_debug("setCurrentVerified: first read-back %.3f, retrying", confirmed);
     vTaskDelay(pdMS_TO_TICKS(VERIFIED_READBACK_DELAY_MS));
-    confirmed = _converter->getCurrentSetVerified();
+    confirmed = converter->getCurrentSetVerified();
     if (fabs(confirmed - amperes) > VERIFIED_TOLERANCE) {
       Log_warn("setCurrentVerified: device did not accept %.3f A (read back %.3f A)", amperes, confirmed);
       outConflict = true;
-      xSemaphoreGive(_mutex);
+      xSemaphoreGive(mutex);
       return false;
     }
   }
   Log_info("setCurrentVerified: confirmed %.3f A", confirmed);
-  _state->setCurrentSet(confirmed);
+  state->setCurrentSet(confirmed);
   confirmedOut = confirmed;
-  xSemaphoreGive(_mutex);
+  xSemaphoreGive(mutex);
   return true;
 }
 
@@ -233,25 +301,25 @@ bool DeviceService::setCurrentVerified(double amperes, double& confirmedOut, boo
  * Java equivalent: DeviceService#setMeasurements (synchronized)
  */
 bool DeviceService::setVoltageCurrent(double volts, double amperes) {
-  if (_converter == nullptr) {
+  if (converter == nullptr) {
     return false;
   }
-  if (!validateRange("Voltage", volts, _state->getMinVoltage(), effectiveMaxVoltage())) {
+  if (!validateRange("Voltage", volts, state->getMinVoltage(), effectiveMaxVoltage())) {
     return false;
   }
-  if (!validateRange("Current", amperes, _state->getMinCurrent(), effectiveMaxCurrent())) {
+  if (!validateRange("Current", amperes, state->getMinCurrent(), effectiveMaxCurrent())) {
     return false;
   }
-  xSemaphoreTake(_mutex, portMAX_DELAY);
+  xSemaphoreTake(mutex, portMAX_DELAY);
   Log_info("Setting voltage %.3f V and current %.3f A (atomic)", volts, amperes);
-  bool ok = _converter->setVoltageCurrent(volts, amperes);
+  bool ok = converter->setVoltageCurrent(volts, amperes);
   if (ok) {
-    _state->setVoltageSet(volts);
-    _state->setCurrentSet(amperes);
-    _voltagePendingUntil = millis() + SETPOINT_SETTLE_MS;
-    _currentPendingUntil = millis() + SETPOINT_SETTLE_MS;
+    state->setVoltageSet(volts);
+    state->setCurrentSet(amperes);
+    voltagePendingUntil = millis() + SETPOINT_SETTLE_MS;
+    currentPendingUntil = millis() + SETPOINT_SETTLE_MS;
   }
-  xSemaphoreGive(_mutex);
+  xSemaphoreGive(mutex);
   return ok;
 }
 
@@ -261,16 +329,16 @@ bool DeviceService::setVoltageCurrent(double volts, double amperes) {
  * Java equivalent: DeviceService#setOutput (synchronized)
  */
 bool DeviceService::setOutput(bool on) {
-  if (_converter == nullptr) {
+  if (converter == nullptr) {
     return false;
   }
-  xSemaphoreTake(_mutex, portMAX_DELAY);
+  xSemaphoreTake(mutex, portMAX_DELAY);
   Log_info("Setting output to %s", on ? "ON" : "OFF");
-  bool ok = _converter->setOutput(on);
+  bool ok = converter->setOutput(on);
   if (ok) {
-    _state->setOutputEnabled(on);
+    state->setOutputEnabled(on);
   }
-  xSemaphoreGive(_mutex);
+  xSemaphoreGive(mutex);
   return ok;
 }
 
@@ -280,16 +348,16 @@ bool DeviceService::setOutput(bool on) {
  * Java equivalent: DeviceService#setKeypad (synchronized)
  */
 bool DeviceService::setKeypad(bool locked) {
-  if (_converter == nullptr) {
+  if (converter == nullptr) {
     return false;
   }
-  xSemaphoreTake(_mutex, portMAX_DELAY);
+  xSemaphoreTake(mutex, portMAX_DELAY);
   Log_info("Setting keypad lock to %s", locked ? "LOCKED" : "UNLOCKED");
-  bool ok = _converter->setKeypad(locked);
+  bool ok = converter->setKeypad(locked);
   if (ok) {
-    _state->setKeypadLocked(locked);
+    state->setKeypadLocked(locked);
   }
-  xSemaphoreGive(_mutex);
+  xSemaphoreGive(mutex);
   return ok;
 }
 
@@ -299,16 +367,16 @@ bool DeviceService::setKeypad(bool locked) {
  * Java equivalent: DeviceService#clearProtection (synchronized)
  */
 bool DeviceService::clearProtection() {
-  if (_converter == nullptr) {
+  if (converter == nullptr) {
     return false;
   }
-  xSemaphoreTake(_mutex, portMAX_DELAY);
+  xSemaphoreTake(mutex, portMAX_DELAY);
   Log_info("Clearing protection state.");
-  bool ok = _converter->setProtectionState(false);
+  bool ok = converter->setProtectionState(false);
   if (ok) {
-    _state->setProtectionState(0);
+    state->setProtectionState(0);
   }
-  xSemaphoreGive(_mutex);
+  xSemaphoreGive(mutex);
   return ok;
 }
 
@@ -331,13 +399,13 @@ void DeviceService::pollingTask(void* param) {
 
 /**
  * Reads all device registers in one bulk 0x03 frame and updates ConverterState.
- * Acquires _mutex to prevent concurrent serial access from write operations.
+ * Acquires mutex to prevent concurrent serial access from write operations.
  * Respects the post-write settle windows for voltageSet and currentSet.
  *
  * Java equivalent: DeviceService#poll (synchronized)
  */
 void DeviceService::poll() {
-  if (_converter == nullptr) {
+  if (converter == nullptr) {
     return;
   }
 
@@ -346,47 +414,48 @@ void DeviceService::poll() {
   static int consecutiveFailures = 0;
   static int consecutiveSuccesses = 0;
 
-  xSemaphoreTake(_mutex, portMAX_DELAY);
-  bool ok = _converter->pollAll();
-  xSemaphoreGive(_mutex);
+  xSemaphoreTake(mutex, portMAX_DELAY);
+  bool ok = converter->pollAll();
+  xSemaphoreGive(mutex);
 
   if (ok) {
     consecutiveSuccesses++;
     consecutiveFailures = 0;
 
-    _state->setVoltageOut(_converter->getVoltage());
-    _state->setCurrentOut(_converter->getCurrent());
-    _state->setPowerOut(_converter->getPower());
-    _state->setVoltageIn(_converter->getInputVoltage());
-    _state->setTemperatureCelsius(_converter->getTemperatureCelsius());
-    _state->setOutputEnabled(_converter->getOutput());
-    _state->setKeypadLocked(_converter->getKeypad());
-    _state->setProtectionState(_converter->getProtectionState() ? 1 : 0);
-    _state->setCvMode(_converter->isCvMode());
+    state->setVoltageOut(converter->getVoltage());
+    state->setCurrentOut(converter->getCurrent());
+    state->setPowerOut(converter->getPower());
+    state->setVoltageIn(converter->getInputVoltage());
+    state->setTemperatureCelsius(converter->getTemperatureCelsius());
+    state->setOutputEnabled(converter->getOutput());
+    state->setKeypadLocked(converter->getKeypad());
+    state->setProtectionState(converter->getProtectionState() ? 1 : 0);
+    state->setCvMode(converter->isCvMode());
 
     // Setpoints: only update if outside the post-write settle window.
     // Java equivalent: if (now >= voltagePendingUntil) state.setVoltageSet(...)
-    if (millis() >= _voltagePendingUntil) {
-      _state->setVoltageSet(_converter->getVoltageSet());
+    if (millis() >= voltagePendingUntil) {
+      state->setVoltageSet(converter->getVoltageSet());
     }
-    if (millis() >= _currentPendingUntil) {
-      _state->setCurrentSet(_converter->getCurrentSet());
+    if (millis() >= currentPendingUntil) {
+      state->setCurrentSet(converter->getCurrentSet());
     }
 
     // Set device identity on first successful poll.
-    if (_converter->getDevice() != nullptr) {
-      _state->setDeviceName(_converter->getDevice());
+    if (converter->getDevice() != nullptr) {
+      state->setDeviceName(converter->getDevice());
     }
-    if (_converter->getManufacturer() != nullptr) {
-      _state->setManufacturer(_converter->getManufacturer());
+    if (converter->getManufacturer() != nullptr) {
+      state->setManufacturer(converter->getManufacturer());
     }
 
     // Online/offline hysteresis - Java equivalent: consecutiveSuccesses tracking.
-    if (!_state->isDeviceOnline()) {
+    if (!state->isDeviceOnline()) {
       if (consecutiveSuccesses >= MAX_CONSECUTIVE_SUCCESSES) {
         consecutiveSuccesses = 0;
         Log_info("Device communication restored - marking Online.");
-        _state->setDeviceOnline(true);
+        state->setDeviceOnline(true);
+        statusLed.setState(LedState::READY);
       }
     } else {
       consecutiveSuccesses = 0;
@@ -398,13 +467,15 @@ void DeviceService::poll() {
     Log_warn("Poll cycle failed (%d/%d).", consecutiveFailures, MAX_CONSECUTIVE_FAILURES);
 
     if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-      _state->setDeviceOnline(false);
+      state->setDeviceOnline(false);
+      statusLed.setState(LedState::NO_DEVICE);
       attemptReconnect();
       consecutiveFailures = 0;
     } else if (consecutiveFailures == 1) {
       // First failure (likely a timeout) → go Offline immediately.
       // Java equivalent: isTimeout → state.setDeviceOnline(false)
-      _state->setDeviceOnline(false);
+      state->setDeviceOnline(false);
+      statusLed.setState(LedState::NO_DEVICE);
     }
   }
 }
@@ -418,7 +489,7 @@ void DeviceService::poll() {
  */
 void DeviceService::attemptReconnect() {
   Log_warn("Attempting serial port reconnect.");
-  if (_converter->reconnect()) {
+  if (converter->reconnect()) {
     Log_info("Serial port reconnect succeeded.");
   } else {
     Log_warn("Serial port reconnect failed.");
@@ -434,14 +505,14 @@ void DeviceService::attemptReconnect() {
  * Java equivalent: DeviceService#effectiveMaxVoltage
  */
 double DeviceService::effectiveMaxVoltage() const {
-  double base = _state->getMaxVoltage();
-  if (_state->getConverterTopology() == ConverterTopology::BUCK && _state->getVoltageIn() > 0.0) {
-    double buckCeiling = _state->getVoltageIn() - BUCK_DROPOUT_V;
+  double base = state->getMaxVoltage();
+  if (state->getConverterTopology() == ConverterTopology::BUCK && state->getVoltageIn() > 0.0) {
+    double buckCeiling = state->getVoltageIn() - BUCK_DROPOUT_V;
     if (buckCeiling < base) {
       base = buckCeiling;
     }
   }
-  double cap = _state->getConfigMaxVoltage();
+  double cap = state->getConfigMaxVoltage();
   return (cap > 0.0 && cap < base) ? cap : base;
 }
 
@@ -453,8 +524,8 @@ double DeviceService::effectiveMaxVoltage() const {
  * Java equivalent: DeviceService#effectiveMaxCurrent
  */
 double DeviceService::effectiveMaxCurrent() const {
-  double base = _state->getMaxCurrent();
-  double cap = _state->getConfigMaxCurrent();
+  double base = state->getMaxCurrent();
+  double cap = state->getConfigMaxCurrent();
   return (cap > 0.0 && cap < base) ? cap : base;
 }
 

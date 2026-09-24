@@ -17,15 +17,15 @@
  * Default active level: INFO (200). TRACE (0) is most verbose.
  *
  * Each Log_info/warn/error/debug/trace(fmt, ...) macro call:
- *   1. Expands to logInfo(__FILE__, __LINE__, fmt, ...) — call site captured.
+ *   1. Expands to logInfo(__FILE__, __LINE__, fmt, ...) - call site captured.
  *   2. Checks the active level; discards if below threshold.
  *   3. Formats "[LEVEL][file:line] message" onto the stack.
- *   4. Prints to Serial (UART0) — no hooks, always works.
+ *   4. Prints to Serial (UART0) - no hooks, always works.
  *   5. Appends to the ring buffer under a FreeRTOS mutex.
  *
  * No ESP_LOG* macros, no linker wraps, no vprintf hooks.
  *
- * No Java equivalent — ESP32-specific remote diagnostics facility.
+ * No Java equivalent - ESP32-specific remote diagnostics facility.
  */
 
 // Global singleton defined here; declared extern in LogBuffer.h.
@@ -40,7 +40,7 @@ const LogLevel LogLevel::INFO ("INFO",  200);
 const LogLevel LogLevel::WARN ("WARN",  300);
 const LogLevel LogLevel::ERROR("ERROR", 400);
 
-// values() — returns a pointer to a static array of const LogLevel pointers.
+// values() - returns a pointer to a static array of const LogLevel pointers.
 // The array is a static local, initialised exactly once, no heap allocation.
 const LogLevel* const* LogLevel::values(size_t& count) {
   static const LogLevel* const all[] = {
@@ -86,7 +86,7 @@ void LogBufferClass::begin() {
     String stored = prefs.getString(LOG_NVS_KEY_LEVEL, "");
     prefs.end();
     if (stored.length() > 0 && setLevelFromString(stored.c_str())) {
-      // Valid level found in NVS — applied successfully.
+      // Valid level found in NVS - applied successfully.
       found = true;
     }
     // If stored.length() > 0 but setLevelFromString returned false the stored
@@ -170,7 +170,7 @@ const char* LogBufferClass::getLevelName() const {
 
 void LogBufferClass::getJson(String& out) const {
   // Build JSON directly from the ring buffer under the mutex.
-  // No large stack allocation — ArduinoJson allocates on the heap.
+  // No large stack allocation - ArduinoJson allocates on the heap.
   xSemaphoreTake(mutex, portMAX_DELAY);
 
   int oldestLineIndex = (count < LOG_BUFFER_LINES) ? 0 : head;
@@ -215,7 +215,7 @@ void LogBufferClass::append(const LogLevel& logLevel, const char* file, int line
   snprintf(logLine, sizeof(logLine), "[%-5s][%s:%d] %s",
            logLevel.name(), fileBasename(file), line, message);
 
-  // Print to Serial (UART0) — no hooks, no build flags required.
+  // Print to Serial (UART0) - no hooks, no build flags required.
   Serial.println(logLine);
 
   // Append to ring buffer under mutex.

@@ -6,19 +6,19 @@
  * LogBuffer.h - Levelled logger with in-RAM ring buffer and Serial output.
  *
  * Replaces all ESP_LOG* calls throughout the codebase. Each log call:
- *   1. Prints a formatted line to UART0 via Serial.println() — always works,
+ *   1. Prints a formatted line to UART0 via Serial.println() - always works,
  *      regardless of Arduino IDE / PlatformIO / build flags.
  *   2. Appends the same line to a fixed-size ring buffer accessible via
  *      GET /api/log, so logs are retrievable without a USB connection.
  *
  * A runtime log level (default INFO) gates both outputs identically.
  *
- * Use the macros — __FILE__ and __LINE__ are captured automatically:
- *   Log_error(fmt, ...)   — level ERROR
- *   Log_warn( fmt, ...)   — level WARN
- *   Log_info( fmt, ...)   — level INFO  (default active level)
- *   Log_debug(fmt, ...)   — level DEBUG
- *   Log_trace(fmt, ...)   — level TRACE
+ * Use the macros - __FILE__ and __LINE__ are captured automatically:
+ *   Log_error(fmt, ...)   - level ERROR
+ *   Log_warn( fmt, ...)   - level WARN
+ *   Log_info( fmt, ...)   - level INFO  (default active level)
+ *   Log_debug(fmt, ...)   - level DEBUG
+ *   Log_trace(fmt, ...)   - level TRACE
  *
  * Output format (level field is always left-justified in 5 chars via %-5s):
  *   [INFO ][Application.cpp:52] Starting SerialController v1.0.0 ...
@@ -32,12 +32,12 @@
  * saveLevel() writes the current level to NVS and is called whenever the
  * level changes (WiFiManager portal submit or PUT /api/log/level).
  *
- * No Java equivalent — ESP32-specific remote diagnostics facility.
+ * No Java equivalent - ESP32-specific remote diagnostics facility.
  * Java uses Log4j2/SLF4J; this is the direct embedded equivalent.
  */
 
 // Ring buffer dimensions.
-// 128 lines × 160 chars = ~20 KB — well within the ~300 KB free heap budget.
+// 128 lines × 160 chars = ~20 KB - well within the ~300 KB free heap budget.
 static constexpr int LOG_BUFFER_LINES = 128;
 static constexpr int LOG_BUFFER_LINE_LEN = 160;
 
@@ -55,7 +55,7 @@ static constexpr const char* LOG_NVS_KEY_LEVEL = "logLevel";
  * A message is emitted when its levelOrdinal() >= the active level's levelOrdinal().
  *
  * All instances are the five public static constants (TRACE…ERROR).
- * No heap allocation — name() returns a string literal in flash; values()
+ * No heap allocation - name() returns a string literal in flash; values()
  * returns a pointer to a static array in flash.
  *
  * Passed by const reference (const LogLevel&) everywhere to avoid copying.
@@ -74,7 +74,7 @@ class LogLevel {
     return levelName;
   }
 
-  // The five canonical instances — mirrors Java enum constants.
+  // The five canonical instances - mirrors Java enum constants.
   static const LogLevel TRACE;
   static const LogLevel DEBUG;
   static const LogLevel INFO;
@@ -84,7 +84,7 @@ class LogLevel {
   /**
    * All levels in ascending severity order, as a plain C array.
    * Java equivalent: LogLevel.values()
-   * No heap allocation — backed by a static array in flash.
+   * No heap allocation - backed by a static array in flash.
    *
    * Usage:
    *   size_t count;
@@ -94,7 +94,7 @@ class LogLevel {
   static const LogLevel* const* values(size_t& count);
 
  private:
-  // Private constructor — only the five static constants may be created.
+  // Private constructor - only the five static constants may be created.
   constexpr LogLevel(const char* name, int ordinal)
       : levelName(name), levelOrdinalValue(ordinal) {}
 
@@ -121,7 +121,7 @@ class LogBufferClass {
    */
   void saveLevel() const;
 
-  // Internal methods — do not call directly. Use the Log_* macros below.
+  // Internal methods - do not call directly. Use the Log_* macros below.
   void logError(const char* file, int line, const char* format, ...);
   void logWarn(const char* file, int line, const char* format, ...);
   void logInfo(const char* file, int line, const char* format, ...);
@@ -152,7 +152,7 @@ class LogBufferClass {
   /**
    * Serialise the ring buffer to a JSON string.
    * Format: {"log":["line0","line1",...],"level":"INFO"}
-   * Built under the mutex — no large stack allocation.
+   * Built under the mutex - no large stack allocation.
    */
   void getJson(String& out) const;
 

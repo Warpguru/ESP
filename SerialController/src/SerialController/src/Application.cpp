@@ -88,10 +88,10 @@ void applicationSetup() {
   // statusLed.setState(FAULT) is called inside setupServer() on WiFi failure;
   // if we reach this point WiFi is up and the server is running.
   if (activeDevice != nullptr) {
-    statusLed.setState(LedState::READY); // OFF — fully operational
+    statusLed.setState(LedState::READY); // OFF - fully operational
   } else {
     statusLed.setState(
-        LedState::NO_DEVICE); // slow blink — server up, no device
+        LedState::NO_DEVICE); // slow blink - server up, no device
   }
 }
 

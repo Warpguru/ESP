@@ -119,14 +119,13 @@ bool Wuzhi::verifyDevicePresent() {
     if (modelName != nullptr) {
       Log_warn(
           "Product model register 0x%s matched community-reported Wuzhi data as %s"
-          " -- not factory-confirmed; promote to KNOWN_MODELS once verified on hardware.",
+          " (not confirmed).",
           hexBuf, modelName);
     } else {
       Log_warn(
           "Product model register 0x%s has Wuzhi/Sinilink 'Y' high byte"
-          " but is not in KNOWN_MODELS or REPORTED_MODELS -- device not identified."
-          " Add Map.entry(%d, \"ZK?????\") to Wuzhi.KNOWN_MODELS once the model is confirmed.",
-          hexBuf, modelValue);
+          " (unidentified, add once confirmed).",
+          hexBuf);
     }
   }
 

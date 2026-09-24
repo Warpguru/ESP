@@ -354,7 +354,7 @@ void setupServer() {
   // autoConnect() returns.  The default option is whichever level is currently
   // active (loaded from NVS by LogBuffer::begin() or the compile-time default).
   //
-  // Built by iterating LogLevel::values() — no hardcoded strings, no per-level
+  // Built by iterating LogLevel::values() - no hardcoded strings, no per-level
   // local variables.  strncat appends directly into the fixed buffer; remaining
   // tracks how many bytes are still free to prevent overflow.
   char portalHtml[300];
@@ -385,7 +385,7 @@ void setupServer() {
   // Read the submitted log level inside the save-params callback, which fires
   // during form submission while WiFiManager's internal web server is still
   // alive and its request arguments are still valid.  Reading wm.server->arg()
-  // AFTER autoConnect() returns is too late — the server has already shut down
+  // AFTER autoConnect() returns is too late - the server has already shut down
   // and the args are gone, which is why the level appeared not to be saved.
   wm.setSaveParamsCallback([&logLevelParam]() {
     const char* chosen = logLevelParam.getValue();
@@ -407,6 +407,13 @@ void setupServer() {
   // Java equivalent: new DeviceService(portName, appConfig)
   static DeviceService deviceServiceInstance(&converterState, activeDevice);
   deviceServicePtr = &deviceServiceInstance;
+
+  // Load device capability limits from the compile-time catalogue into
+  // ConverterState. Must run before begin() starts the polling task so
+  // that effectiveMaxVoltage() / effectiveMaxCurrent() have valid bounds
+  // before the first setpoint write can arrive over REST or WebSocket.
+  // Java equivalent: DeviceService constructor → loadLimits()
+  deviceServicePtr->loadLimits();
 
   // Construct RestService with a pointer to the server and DeviceService.
   // Java equivalent: new RestService(deviceService, appConfig)

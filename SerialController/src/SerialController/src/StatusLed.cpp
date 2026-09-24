@@ -10,7 +10,7 @@
  * uses vTaskDelay() in NO_DEVICE (yields for 1 s between toggles), and
  * loops synchronously in FAULT (SOS pattern) until setState() is called.
  *
- * No Java equivalent — ESP32-specific hardware feedback facility.
+ * No Java equivalent - ESP32-specific hardware feedback facility.
  */
 
 // Global singleton instance.
@@ -57,7 +57,7 @@ void StatusLed::blinkSOS(int pin) {
 // ---- ledTask ---------------------------------------------------------------
 
 /**
- * Permanent FreeRTOS task — sole owner of STATUS_LED_PIN.
+ * Permanent FreeRTOS task - sole owner of STATUS_LED_PIN.
  *
  * BOOTING / READY : sets LED then blocks indefinitely on task notification.
  *                   setState() sends the notification to wake immediately.
@@ -74,13 +74,13 @@ void StatusLed::ledTask(void *param) {
 
     case LedState::BOOTING:
       // Set LED and block indefinitely. FreeRTOS removes this task from the
-      // scheduler ready list — zero CPU consumed until setState() notifies.
+      // scheduler ready list - zero CPU consumed until setState() notifies.
       digitalWrite(STATUS_LED_PIN, HIGH);
       ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
       break;
 
     case LedState::READY:
-      // Set LED and block indefinitely — same mechanism as BOOTING.
+      // Set LED and block indefinitely - same mechanism as BOOTING.
       digitalWrite(STATUS_LED_PIN, LOW);
       ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
       break;
@@ -112,8 +112,11 @@ void StatusLed::begin() {
 
 // ---- setState --------------------------------------------------------------
 
-void StatusLed::setState(LedState state) {
-  ledState = state;
+void StatusLed::setState(LedState newState) {
+  if (newState == ledState) {
+    return;
+  }
+  ledState = newState;
   if (taskHandle != nullptr) {
     xTaskNotifyGive(taskHandle);
   }

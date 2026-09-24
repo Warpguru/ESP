@@ -130,12 +130,12 @@ bool Sinilink::verifyDevicePresent() {
     if (modelName != nullptr) {
       Log_warn(
           "Product model register 0x%s matched community-reported data as %s"
-          " -- not factory-confirmed; promote to KNOWN_MODELS once verified on hardware.",
+          " (not confirmed).",
           hexBuf, modelName);
     } else {
       Log_warn(
           "Product model register 0x%s has Sinilink 'Y' high byte"
-          " but is not in KNOWN_MODELS or REPORTED_MODELS -- device not identified.",
+          " (unidentified, add once confirmed).",
           hexBuf);
     }
   }

@@ -55,7 +55,7 @@ class DeviceService {
 
   // ---- Validated write operations -------------------------------------------
   // Java equivalent: the synchronized write methods in DeviceService.
-  // Each acquires _mutex before calling the driver, preventing concurrent
+  // Each acquires mutex before calling the driver, preventing concurrent
   // serial access between REST/WS handlers and the poll task.
 
   /**
@@ -116,18 +116,26 @@ class DeviceService {
    */
   bool clearProtection();
 
+  /**
+   * Loads device capability limits from the compile-time catalogue and applies
+   * them to ConverterState. Must be called after construction and before begin().
+   *
+   * Java equivalent: DeviceService#loadLimits()
+   */
+  void loadLimits();
+
  private:
-  ConverterState* _state;
-  DC2DCConverter* _converter;
+  ConverterState* state;
+  DC2DCConverter* converter;
 
   /** Serialises poll task and write operations - Java equivalent: synchronized. */
-  SemaphoreHandle_t _mutex;
+  SemaphoreHandle_t mutex;
 
   /** millis() deadline before which poll must not overwrite voltageSet. */
-  volatile uint32_t _voltagePendingUntil = 0;
+  volatile uint32_t voltagePendingUntil = 0;
 
   /** millis() deadline before which poll must not overwrite currentSet. */
-  volatile uint32_t _currentPendingUntil = 0;
+  volatile uint32_t currentPendingUntil = 0;
 
   static void pollingTask(void* param);
   void poll();
