@@ -184,19 +184,19 @@ void WebSocketService::onEvent(AsyncWebSocket* server, AsyncWebSocketClient* cli
       }
 
       // Null-terminate for ArduinoJson (stack buffer; 256-byte cap matches typical command size).
-      char buf[257];
-      size_t copy = (len < 256) ? len : 256;
-      memcpy(buf, data, copy);
-      buf[copy] = '\0';
-      Log_info("Client #%u message: %s", client->id(), buf);
+      char messageBuffer[257];
+      size_t copyLength = (len < 256) ? len : 256;
+      memcpy(messageBuffer, data, copyLength);
+      messageBuffer[copyLength] = '\0';
+      Log_info("Client #%u message: %s", client->id(), messageBuffer);
 
       // Parse incoming JSON.
       // Java equivalent: objectMapper.readValue(msg, Map.class)
       JsonDocument doc;
-      DeserializationError err = deserializeJson(doc, buf);
-      if (err) {
+      DeserializationError deserializationError = deserializeJson(doc, messageBuffer);
+      if (deserializationError) {
         // Java equivalent: logger.warn("Failed to parse WebSocket message: {}", e.getMessage())
-        Log_warn("Client #%u malformed JSON: %s", client->id(), err.c_str());
+        Log_warn("Client #%u malformed JSON: %s", client->id(), deserializationError.c_str());
         break;
       }
 

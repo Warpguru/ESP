@@ -6,6 +6,7 @@
 #include <freertos/task.h>
 
 #include "../../../src/SerialController/src/LogBuffer.h"
+#include "../../device/src/base/DeviceRegister.h"
 #include "ModbusCRC.h"
 #include "ModbusConstants.h"
 #include "ModbusFunctionCodes.h"
@@ -64,21 +65,158 @@ typedef struct {
 // Names and logic mirror the private methods of com.serial.modbus.ModbusTransport.
 
 /**
- * Reads exactly n bytes from Serial2, blocking up to READ_TIMEOUT_MS.
+ * Derives a short human-readable annotation from a raw Modbus RTU frame.
+ *
+ * Java equivalent: ModbusTransport#decodeFrame
+ */
+static void decodeFrame(
+    const char* direction,
+    const uint8_t* frameData,
+    int frameLength,
+    char* outputBuffer,
+    size_t outputBufferSize) {
+  outputBuffer[0] = '\0';
+  if (frameData == nullptr || frameLength < 4) {
+    return;
+  }
+  const uint8_t functionCode = frameData[1];
+  if (strcmp(direction, "TX") == 0) {
+    if (frameLength >= 6) {
+      const uint16_t startAddress = ((uint16_t)frameData[2] << 8) | frameData[3];
+      if (functionCode == ModbusFunctionCodes::READ_HOLDING_REGISTERS) {
+        const uint16_t registerCount = ((uint16_t)frameData[4] << 8) | frameData[5];
+        if (registerCount == 1) {
+          const char* registerName = DeviceRegister::lookupName(startAddress);
+          if (registerName != nullptr) {
+            snprintf(outputBuffer, outputBufferSize, "Read %s", registerName);
+          } else {
+            snprintf(outputBuffer, outputBufferSize, "Read 0x%04X", startAddress);
+          }
+          return;
+        }
+        snprintf(
+            outputBuffer,
+            outputBufferSize,
+            "Read 0x%04X-0x%04X (%d regs)",
+            startAddress,
+            (uint16_t)(startAddress + registerCount - 1),
+            (int)registerCount);
+        return;
+      }
+      if (functionCode == ModbusFunctionCodes::WRITE_SINGLE_REGISTER) {
+        const char* registerName = DeviceRegister::lookupName(startAddress);
+        const uint16_t rawValue = ((uint16_t)frameData[4] << 8) | frameData[5];
+        if (registerName != nullptr) {
+          snprintf(outputBuffer, outputBufferSize, "Write %s = %d", registerName, (int)rawValue);
+        } else {
+          snprintf(outputBuffer, outputBufferSize, "Write 0x%04X = %d", startAddress, (int)rawValue);
+        }
+        return;
+      }
+      if (functionCode == ModbusFunctionCodes::WRITE_MULTIPLE_REGISTERS && frameLength >= 7) {
+        const uint16_t quantity = ((uint16_t)frameData[4] << 8) | frameData[5];
+        snprintf(
+            outputBuffer,
+            outputBufferSize,
+            "Write 0x%04X-0x%04X (%d regs)",
+            startAddress,
+            (uint16_t)(startAddress + quantity - 1),
+            (int)quantity);
+        return;
+      }
+    }
+  } else {
+    if (functionCode == ModbusFunctionCodes::READ_HOLDING_REGISTERS) {
+      if (frameLength == 7) {
+        const uint16_t registerValue = ((uint16_t)frameData[3] << 8) | frameData[4];
+        snprintf(outputBuffer, outputBufferSize, "Value = %d (0x%04X)", (int)registerValue, (unsigned)registerValue);
+        return;
+      }
+      if (frameLength > 7) {
+        const uint8_t dataByteCount = frameData[2];
+        snprintf(outputBuffer, outputBufferSize, "Read %d regs, %d data bytes", (int)(dataByteCount / 2), (int)dataByteCount);
+        return;
+      }
+    }
+    if (functionCode == ModbusFunctionCodes::WRITE_SINGLE_REGISTER && frameLength >= 6) {
+      const uint16_t registerAddress = ((uint16_t)frameData[2] << 8) | frameData[3];
+      const char* registerName = DeviceRegister::lookupName(registerAddress);
+      const uint16_t registerValue = ((uint16_t)frameData[4] << 8) | frameData[5];
+      if (registerName != nullptr) {
+        snprintf(outputBuffer, outputBufferSize, "Write %s = %d", registerName, (int)registerValue);
+      } else {
+        snprintf(outputBuffer, outputBufferSize, "Write 0x%04X = %d", registerAddress, (int)registerValue);
+      }
+      return;
+    }
+    if (functionCode == ModbusFunctionCodes::WRITE_MULTIPLE_REGISTERS && frameLength == 8) {
+      const uint16_t startAddress = ((uint16_t)frameData[2] << 8) | frameData[3];
+      const uint16_t quantity = ((uint16_t)frameData[4] << 8) | frameData[5];
+      snprintf(
+          outputBuffer,
+          outputBufferSize,
+          "Wrote 0x%04X-0x%04X (%d regs)",
+          startAddress,
+          (uint16_t)(startAddress + quantity - 1),
+          (int)quantity);
+      return;
+    }
+  }
+}
+
+/**
+ * Logs a Modbus frame, formatting raw hex at DEBUG and decoded annotations at TRACE.
+ *
+ * Java equivalent: ModbusTransport#log
+ */
+static void logFrame(
+    const char* direction,
+    const uint8_t* frameData,
+    int frameLength,
+    const char* annotationHint = nullptr) {
+  // Raw hex bytes at DEBUG level
+  char hexBuffer[128];
+  int writePosition = 0;
+  writePosition += snprintf(hexBuffer + writePosition, sizeof(hexBuffer) - writePosition, "%s  ", direction);
+  for (int byteIndex = 0; byteIndex < frameLength && writePosition < (int)sizeof(hexBuffer) - 4; byteIndex++) {
+    writePosition += snprintf(
+        hexBuffer + writePosition,
+        sizeof(hexBuffer) - writePosition,
+        "%02X ",
+        frameData[byteIndex]);
+  }
+  Log_debug("%s", hexBuffer);
+
+  // Decoded annotation at TRACE level
+  char decodedText[128];
+  decodeFrame(direction, frameData, frameLength, decodedText, sizeof(decodedText));
+  if (decodedText[0] != '\0' || annotationHint != nullptr) {
+    if (decodedText[0] != '\0' && annotationHint != nullptr) {
+      Log_trace("    -> %s, %s", decodedText, annotationHint);
+    } else if (decodedText[0] != '\0') {
+      Log_trace("    -> %s", decodedText);
+    } else if (annotationHint != nullptr) {
+      Log_trace("    -> %s", annotationHint);
+    }
+  }
+}
+
+/**
+ * Reads exactly expectedByteCount bytes from Serial2, blocking up to READ_TIMEOUT_MS.
  *
  * Java equivalent: ModbusTransport#readBytes - same partial-read accumulation loop.
  * Deviation: returns bool (false on timeout) instead of throwing RuntimeException.
  */
-static bool readBytes(uint8_t* buf, int n) {
-  uint32_t start = millis();
-  int pos = 0;
-  while (pos < n) {
-    if (millis() - start >= (uint32_t)ModbusConstants::READ_TIMEOUT_MS) {
-      Log_error("Serial timeout: expected %d bytes, got %d", n, pos);
+static bool readBytes(uint8_t* destinationBuffer, int expectedByteCount) {
+  uint32_t startTime = millis();
+  int bytesRead = 0;
+  while (bytesRead < expectedByteCount) {
+    if (millis() - startTime >= (uint32_t)ModbusConstants::READ_TIMEOUT_MS) {
+      Log_warn("Serial timeout: expected %d bytes, got %d", expectedByteCount, bytesRead);
       return false;
     }
     if (Serial2.available()) {
-      buf[pos++] = Serial2.read();
+      destinationBuffer[bytesRead++] = Serial2.read();
     } else {
       vTaskDelay(1);
     }
@@ -154,6 +292,7 @@ static bool readRegister(uint8_t slave, uint16_t reg, uint16_t& value) {
   frame[6] = (uint8_t)crc;
   frame[7] = (uint8_t)(crc >> 8);
 
+  logFrame("TX", frame, 8);
   while (Serial2.available()) {
     Serial2.read();
   }
@@ -163,6 +302,7 @@ static bool readRegister(uint8_t slave, uint16_t reg, uint16_t& value) {
   if (!readBytes(resp, 7)) {
     return false;
   }
+  logFrame("RX", resp, 7);
   if (!verifyCRC(resp, 7)) {
     return false;
   }
@@ -185,6 +325,11 @@ static bool readRegister(uint8_t slave, uint16_t reg, uint16_t& value) {
  * Deviation: bool return + output via pointer instead of int[] return / throws.
  */
 static bool readRegisters(uint8_t slave, uint16_t startReg, uint8_t count, uint16_t* values) {
+  if (count < 1 || count > ModbusConstants::MAX_READ_REGISTERS) {
+    Log_error("readRegisters() called with invalid count %d (must be 1-%d); this is a programming error",
+              (int)count, ModbusConstants::MAX_READ_REGISTERS);
+    return false;
+  }
   uint8_t frame[8];
   frame[0] = slave;
   frame[1] = ModbusFunctionCodes::READ_HOLDING_REGISTERS;
@@ -196,6 +341,7 @@ static bool readRegisters(uint8_t slave, uint16_t startReg, uint8_t count, uint1
   frame[6] = (uint8_t)crc;
   frame[7] = (uint8_t)(crc >> 8);
 
+  logFrame("TX", frame, 8);
   while (Serial2.available()) {
     Serial2.read();
   }
@@ -207,6 +353,7 @@ static bool readRegisters(uint8_t slave, uint16_t startReg, uint8_t count, uint1
   if (!readBytes(resp, respLen)) {
     return false;
   }
+  logFrame("RX", resp, respLen);
   if (!verifyCRC(resp, respLen)) {
     return false;
   }
@@ -241,6 +388,7 @@ static bool writeRegister(uint8_t slave, uint16_t reg, uint16_t value) {
   frame[6] = (uint8_t)crc;
   frame[7] = (uint8_t)(crc >> 8);
 
+  logFrame("TX", frame, 8);
   while (Serial2.available()) {
     Serial2.read();
   }
@@ -250,6 +398,7 @@ static bool writeRegister(uint8_t slave, uint16_t reg, uint16_t value) {
   if (!readBytes(resp, 8)) {
     return false;
   }
+  logFrame("RX", resp, 8);
   if (!verifyCRC(resp, 8)) {
     return false;
   }
@@ -287,6 +436,7 @@ static bool writeRegisters(uint8_t slave, uint16_t startReg, const uint16_t* val
   frame[frameLen - 2] = (uint8_t)crc;
   frame[frameLen - 1] = (uint8_t)(crc >> 8);
 
+  logFrame("TX", frame, frameLen);
   while (Serial2.available()) {
     Serial2.read();
   }
@@ -297,6 +447,7 @@ static bool writeRegisters(uint8_t slave, uint16_t startReg, const uint16_t* val
   if (!readBytes(resp, 8)) {
     return false;
   }
+  logFrame("RX", resp, 8);
   if (!verifyCRC(resp, 8)) {
     return false;
   }

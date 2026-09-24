@@ -11,6 +11,29 @@
  * no-op kept for API symmetry - ESPAsyncWebServer is fully non-blocking.
  */
 
+// ---- Server configuration constants ----------------------------------------
+
+/** TCP port the HTTP server listens on. */
+static constexpr int SERVER_PORT = 80;
+
+/** WebSocket endpoint path. */
+static constexpr const char* WS_PATH = "/ws/data";
+
+/**
+ * Delay in milliseconds between sending the /reset acknowledgement response
+ * and calling wm.resetSettings() + ESP.restart(), giving the TCP stack time
+ * to flush the response to the client before the reboot occurs.
+ */
+static constexpr int RESET_REBOOT_DELAY_MS = 200;
+
+// ---- HTTP status codes ------------------------------------------------------
+
+static constexpr int HTTP_CODE_OK                  = 200;
+static constexpr int HTTP_CODE_BAD_REQUEST         = 400;
+static constexpr int HTTP_CODE_SERVICE_UNAVAILABLE = 503;
+
+// ---- Public functions -------------------------------------------------------
+
 /**
  * Connects to WiFi using WiFiManager and starts the async HTTP + WebSocket server.
  * Must be called once from applicationSetup().

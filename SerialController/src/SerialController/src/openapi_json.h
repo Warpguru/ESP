@@ -367,6 +367,19 @@ static const char OPENAPI_JSON[] PROGMEM = R"rawjson(
           }
         }
       }
+    },
+    "/reset": {
+      "get": {
+        "tags": ["Diagnostics"],
+        "summary": "Clear WiFi credentials and reboot",
+        "description": "Erases the stored WiFi SSID/password from NVS and immediately reboots the ESP32 into WiFiManager captive-portal (configuration) mode. The log level setting is NOT cleared. Use with caution — the device will be unreachable until WiFi credentials are re-entered via the captive portal.",
+        "responses": {
+          "200": {
+            "description": "Credentials cleared; ESP32 is rebooting",
+            "content": { "text/plain": { "schema": { "type": "string" } } }
+          }
+        }
+      }
     }
   },
   "components": {

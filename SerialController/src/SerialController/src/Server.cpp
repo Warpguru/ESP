@@ -33,14 +33,10 @@
  * live here alongside the other platform-specific startup code.
  */
 
-// HTTP status codes
-#define HTTP_CODE_OK 200
-#define HTTP_CODE_SERVICE_UNAVAILABLE 503
-
 // ---- Global server objects -------------------------------------------------
 
-AsyncWebServer server(80);
-AsyncWebSocket ws("/ws/data");
+AsyncWebServer server(SERVER_PORT);
+AsyncWebSocket ws(WS_PATH);
 WebSocketService wsService(&ws, &converterState);
 
 /**
@@ -64,8 +60,8 @@ WiFiManager wm;
 static void handleGetStatus(AsyncWebServerRequest* request) {
   Log_info("GET /status");
   JsonDocument doc;
-  JsonObject root = doc.to<JsonObject>();
-  fillESPInfo(root);
+  JsonObject statusObject = doc.to<JsonObject>();
+  fillESPInfo(statusObject);
   String json;
   serializeJson(doc, json);
   request->send(HTTP_CODE_OK, "application/json", json);
@@ -79,7 +75,7 @@ static void handleReset(AsyncWebServerRequest* request) {
   Log_warn("GET /reset - CLEARING SETTINGS");
   request->send(HTTP_CODE_OK, "text/plain",
                 "WiFi settings cleared. ESP32 rebooting to Configuration Mode...");
-  delay(200);
+  delay(RESET_REBOOT_DELAY_MS);
   wm.resetSettings();
   ESP.restart();
 }
@@ -103,17 +99,17 @@ static void handleGetVoltageLegacy(AsyncWebServerRequest* request) {
 }
 
 /**
- * POST /setVoltage?v=x - legacy alias; prefer PUT /api/voltage.
+ * POST /setVoltage?voltage=x - legacy alias; prefer PUT /api/voltage.
  */
 static void handleSetVoltageLegacy(AsyncWebServerRequest* request) {
-  if (!request->hasArg("v")) {
-    request->send(400, "text/plain", "Bad Request: Missing 'v' parameter");
+  if (!request->hasArg("voltage")) {
+    request->send(HTTP_CODE_BAD_REQUEST, "text/plain", "Bad Request: Missing 'voltage' parameter");
     return;
   }
-  float v = request->arg("v").toFloat();
-  Log_info("POST /setVoltage?v=%.2f (deprecated)", v);
-  if (activeDevice != nullptr && activeDevice->setVoltage(v)) {
-    request->send(HTTP_CODE_OK, "text/plain", "Voltage set to: " + String(v, 2) + "V");
+  float voltage = request->arg("voltage").toFloat();
+  Log_info("POST /setVoltage?voltage=%.2f (deprecated)", voltage);
+  if (activeDevice != nullptr && activeDevice->setVoltage(voltage)) {
+    request->send(HTTP_CODE_OK, "text/plain", "Voltage set to: " + String(voltage, 2) + "V");
   } else {
     request->send(HTTP_CODE_SERVICE_UNAVAILABLE, "text/plain", "Riden Modbus Write Failed");
   }
@@ -149,16 +145,18 @@ static void handleGetLog(AsyncWebServerRequest* request) {
  */
 static void handlePutLogLevel(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t, size_t) {
   JsonDocument doc;
-  DeserializationError err = deserializeJson(doc, data, len);
-  if (err || !doc["level"].is<const char*>()) {
-    request->send(400, "application/json", "{\"error\":\"Expected {\\\"level\\\":\\\"INFO\\\"}\"}");
+  DeserializationError deserializationError = deserializeJson(doc, data, len);
+  if (deserializationError || !doc["level"].is<const char*>()) {
+    request->send(HTTP_CODE_BAD_REQUEST, "application/json", "{\"error\":\"Expected {\\\"level\\\":\\\"INFO\\\"}\"}");
     return;
   }
-  const char* name = doc["level"].as<const char*>();
-  if (!Log.setLevelFromString(name)) {
-    request->send(400, "application/json", "{\"error\":\"Unknown level\"}");
+  const char* levelName = doc["level"].as<const char*>();
+  if (!Log.setLevelFromString(levelName)) {
+    request->send(HTTP_CODE_BAD_REQUEST, "application/json", "{\"error\":\"Unknown level\"}");
     return;
   }
+  // Persist to NVS so the new level survives a reboot.
+  Log.saveLevel();
   Log_info("Log level changed to %s", Log.getLevelName());
   String json = "{\"level\":\"";
   json += Log.getLevelName();
@@ -254,12 +252,12 @@ static void handleDoc(AsyncWebServerRequest* request) {
   html += "<pre>curl -X PUT http://" + ip + "/api/current -H 'Content-Type: application/json' -d '{\"current\":1.0}'</pre></div>";
   html += "<div class='ep'><span class='m PUT'>PUT</span><code>/api/current/verified</code>";
   html += "<pre>curl -X PUT http://" + ip + "/api/current/verified -H 'Content-Type: application/json' -d '{\"current\":1.0}'</pre></div>";
+
+  html += "<h2>Device control</h2>";
   html += "<div class='ep'><span class='m PUT'>PUT</span><code>/api/output</code>";
   html += "<pre>curl -X PUT http://" + ip + "/api/output -H 'Content-Type: application/json' -d '{\"outputEnable\":true}'</pre></div>";
   html += "<div class='ep'><span class='m PUT'>PUT</span><code>/api/keypad</code>";
   html += "<pre>curl -X PUT http://" + ip + "/api/keypad -H 'Content-Type: application/json' -d '{\"keypadLock\":true}'</pre></div>";
-
-  html += "<h2>Device control</h2>";
   html += "<div class='ep'><span class='m POST'>POST</span><code>/api/protection/clear</code>";
   html += "<pre>curl -X POST http://" + ip + "/api/protection/clear</pre></div>";
 
@@ -277,7 +275,7 @@ static void handleDoc(AsyncWebServerRequest* request) {
 
   html += "<h2>Deprecated</h2>";
   html += "<div class='ep'><span class='m GET'>GET</span><code class='dep'>/voltage</code> &nbsp;";
-  html += "<span class='m POST'>POST</span><code class='dep'>/setVoltage?v=x</code>";
+  html += "<span class='m POST'>POST</span><code class='dep'>/setVoltage?voltage=x</code>";
   html += "<p class='dep'>Kept for backward compatibility. Use <code>/api/voltage</code> and <code>PUT /api/voltage</code>.</p></div>";
 
   html += "</body></html>";
@@ -308,13 +306,20 @@ static void handleGetOpenApiJson(AsyncWebServerRequest* request) {
  */
 static void handleGetOpenApiUi(AsyncWebServerRequest* request) {
   Log_info("GET /openapi/ui");
-  static const char UI_HTML[] =
+  String ip = WiFi.localIP().toString();
+  String html =
       "<!DOCTYPE html>"
       "<html lang=\"en\"><head>"
       "<meta charset=\"utf-8\"/>"
       "<title>SerialController API</title>"
       "<link rel=\"stylesheet\" href=\"https://unpkg.com/swagger-ui-dist@5.33.0/swagger-ui.css\"/>"
+      "<style>"
+      ".build-banner{background:#f8f9fa;border-bottom:1px solid #e9ecef;padding:8px 16px;font-family:sans-serif;font-size:13px;color:#495057}"
+      ".build-banner strong{color:#212529}"
+      "</style>"
       "</head><body>"
+      "<div class=\"build-banner\">IP: <strong>" + ip + "</strong> | SSID: <strong>" + WiFi.SSID() +
+      "</strong> | Built: <strong>" __DATE__ " " __TIME__ "</strong></div>"
       "<div id=\"swagger-ui\"></div>"
       "<script src=\"https://unpkg.com/swagger-ui-dist@5.33.0/swagger-ui-bundle.js\"></script>"
       "<script>"
@@ -328,7 +333,7 @@ static void handleGetOpenApiUi(AsyncWebServerRequest* request) {
       "};"
       "</script>"
       "</body></html>";
-  request->send(HTTP_CODE_OK, "text/html", UI_HTML);
+  request->send(HTTP_CODE_OK, "text/html", html);
 }
 
 // ---- setupServer -----------------------------------------------------------
@@ -342,11 +347,60 @@ static void handleGetOpenApiUi(AsyncWebServerRequest* request) {
  */
 void setupServer() {
   Log_info("Initializing WiFiManager...");
+
+  // Inject a log-level <select> into the WiFiManager captive-portal form.
+  // The custom HTML is rendered verbatim inside the portal page by WiFiManager.
+  // The <select> name "logLevel" is used to retrieve the chosen value after
+  // autoConnect() returns.  The default option is whichever level is currently
+  // active (loaded from NVS by LogBuffer::begin() or the compile-time default).
+  //
+  // Built by iterating LogLevel::values() — no hardcoded strings, no per-level
+  // local variables.  strncat appends directly into the fixed buffer; remaining
+  // tracks how many bytes are still free to prevent overflow.
+  char portalHtml[300];
+  size_t remaining = sizeof(portalHtml);
+  portalHtml[0] = '\0';
+  strncat(portalHtml, "<br/><label for='logLevel'>Log Level</label>"
+                      "<select id='logLevel' name='logLevel'>", remaining - 1);
+  remaining -= strlen(portalHtml);
+
+  size_t levelCount;
+  const LogLevel* const* levels = LogLevel::values(levelCount);
+  const char* currentLevel = Log.getLevelName();
+  for (size_t i = 0; i < levelCount; i++) {
+    const char* levelName = levels[i]->name();
+    const char* selected = (strcmp(currentLevel, levelName) == 0) ? " selected" : "";
+    char option[60];
+    snprintf(option, sizeof(option), "<option value='%s'%s>%s</option>",
+             levelName, selected, levelName);
+    strncat(portalHtml, option, remaining - 1);
+    remaining -= strlen(option);
+  }
+  strncat(portalHtml, "</select>", remaining - 1);
+
+  // WiFiManagerParameter with an empty id/label injects raw HTML into the form.
+  WiFiManagerParameter logLevelParam(portalHtml);
+  wm.addParameter(&logLevelParam);
+
+  // Read the submitted log level inside the save-params callback, which fires
+  // during form submission while WiFiManager's internal web server is still
+  // alive and its request arguments are still valid.  Reading wm.server->arg()
+  // AFTER autoConnect() returns is too late — the server has already shut down
+  // and the args are gone, which is why the level appeared not to be saved.
+  wm.setSaveParamsCallback([&logLevelParam]() {
+    const char* chosen = logLevelParam.getValue();
+    if (chosen != nullptr && chosen[0] != '\0' && Log.setLevelFromString(chosen)) {
+      Log.saveLevel();
+      Log_info("Log level set from portal to %s", Log.getLevelName());
+    }
+  });
+
   if (!wm.autoConnect("SerialController")) {
     Log_error("WiFi Connection Failed! Halting with SOS signal.");
     statusLed.setState(LedState::FAULT);
     vTaskSuspend(NULL);  // suspend the calling task; ledTask drives SOS forever
   }
+
   Log_info("WiFi Connected! IP: %s", WiFi.localIP().toString().c_str());
 
   // Construct DeviceService now that activeDevice is available.

@@ -37,70 +37,70 @@ RestService::RestService(AsyncWebServer* server, DeviceService* deviceService)
 void RestService::registerRoutes() {
   // GET handlers - no body, simple lambda captures this.
   _server->on("/api/state", AsyncWebRequestMethod::HTTP_GET,
-              [this](AsyncWebServerRequest* r) { handleGetState(r); });
+              [this](AsyncWebServerRequest* request) { handleGetState(request); });
   _server->on("/api/limits", AsyncWebRequestMethod::HTTP_GET,
-              [this](AsyncWebServerRequest* r) { handleGetLimits(r); });
+              [this](AsyncWebServerRequest* request) { handleGetLimits(request); });
   _server->on("/api/measurements", AsyncWebRequestMethod::HTTP_GET,
-              [this](AsyncWebServerRequest* r) { handleGetMeasurements(r); });
+              [this](AsyncWebServerRequest* request) { handleGetMeasurements(request); });
   _server->on("/api/voltage", AsyncWebRequestMethod::HTTP_GET,
-              [this](AsyncWebServerRequest* r) { handleGetVoltage(r); });
+              [this](AsyncWebServerRequest* request) { handleGetVoltage(request); });
   _server->on("/api/current", AsyncWebRequestMethod::HTTP_GET,
-              [this](AsyncWebServerRequest* r) { handleGetCurrent(r); });
+              [this](AsyncWebServerRequest* request) { handleGetCurrent(request); });
   _server->on("/api/power", AsyncWebRequestMethod::HTTP_GET,
-              [this](AsyncWebServerRequest* r) { handleGetPower(r); });
+              [this](AsyncWebServerRequest* request) { handleGetPower(request); });
 
   // PUT/POST handlers - body delivered via onBody callback (three-arg form).
   _server->on(
       "/api/measurements", AsyncWebRequestMethod::HTTP_PUT,
-      [](AsyncWebServerRequest* r) {},
+      [](AsyncWebServerRequest* request) {},
       nullptr,
-      [this](AsyncWebServerRequest* r, uint8_t* d, size_t l, size_t i, size_t t) {
-        handlePutMeasurements(r, d, l, i, t);
+      [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+        handlePutMeasurements(request, data, len, index, total);
       });
   _server->on(
       "/api/voltage", AsyncWebRequestMethod::HTTP_PUT,
-      [](AsyncWebServerRequest* r) {},
+      [](AsyncWebServerRequest* request) {},
       nullptr,
-      [this](AsyncWebServerRequest* r, uint8_t* d, size_t l, size_t i, size_t t) {
-        handlePutVoltage(r, d, l, i, t);
+      [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+        handlePutVoltage(request, data, len, index, total);
       });
   _server->on(
       "/api/voltage/verified", AsyncWebRequestMethod::HTTP_PUT,
-      [](AsyncWebServerRequest* r) {},
+      [](AsyncWebServerRequest* request) {},
       nullptr,
-      [this](AsyncWebServerRequest* r, uint8_t* d, size_t l, size_t i, size_t t) {
-        handlePutVoltageVerified(r, d, l, i, t);
+      [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+        handlePutVoltageVerified(request, data, len, index, total);
       });
   _server->on(
       "/api/current", AsyncWebRequestMethod::HTTP_PUT,
-      [](AsyncWebServerRequest* r) {},
+      [](AsyncWebServerRequest* request) {},
       nullptr,
-      [this](AsyncWebServerRequest* r, uint8_t* d, size_t l, size_t i, size_t t) {
-        handlePutCurrent(r, d, l, i, t);
+      [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+        handlePutCurrent(request, data, len, index, total);
       });
   _server->on(
       "/api/current/verified", AsyncWebRequestMethod::HTTP_PUT,
-      [](AsyncWebServerRequest* r) {},
+      [](AsyncWebServerRequest* request) {},
       nullptr,
-      [this](AsyncWebServerRequest* r, uint8_t* d, size_t l, size_t i, size_t t) {
-        handlePutCurrentVerified(r, d, l, i, t);
+      [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+        handlePutCurrentVerified(request, data, len, index, total);
       });
   _server->on(
       "/api/output", AsyncWebRequestMethod::HTTP_PUT,
-      [](AsyncWebServerRequest* r) {},
+      [](AsyncWebServerRequest* request) {},
       nullptr,
-      [this](AsyncWebServerRequest* r, uint8_t* d, size_t l, size_t i, size_t t) {
-        handlePutOutput(r, d, l, i, t);
+      [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+        handlePutOutput(request, data, len, index, total);
       });
   _server->on(
       "/api/keypad", AsyncWebRequestMethod::HTTP_PUT,
-      [](AsyncWebServerRequest* r) {},
+      [](AsyncWebServerRequest* request) {},
       nullptr,
-      [this](AsyncWebServerRequest* r, uint8_t* d, size_t l, size_t i, size_t t) {
-        handlePutKeypad(r, d, l, i, t);
+      [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+        handlePutKeypad(request, data, len, index, total);
       });
   _server->on("/api/protection/clear", AsyncWebRequestMethod::HTTP_POST,
-              [this](AsyncWebServerRequest* r) { handlePostProtectionClear(r); });
+              [this](AsyncWebServerRequest* request) { handlePostProtectionClear(request); });
 
   Log_info("REST routes registered.");
 }
@@ -112,31 +112,31 @@ void RestService::registerRoutes() {
  */
 void RestService::handleGetState(AsyncWebServerRequest* request) {
   Log_info("GET /api/state");
-  const ConverterState* s = _deviceService->getState();
+  const ConverterState* state = _deviceService->getState();
   JsonDocument doc;
-  doc["deviceName"] = s->getDeviceName();
-  doc["manufacturer"] = s->getManufacturer();
-  doc["firmwareVersion"] = s->getFirmwareVersion();
-  doc["deviceOnline"] = s->isDeviceOnline();
-  doc["converterTopology"] = (int)s->getConverterTopology();
-  doc["voltageOut"] = s->getVoltageOut();
-  doc["currentOut"] = s->getCurrentOut();
-  doc["powerOut"] = s->getPowerOut();
-  doc["voltageIn"] = s->getVoltageIn();
-  doc["temperatureCelsius"] = s->getTemperatureCelsius();
-  doc["voltageSet"] = s->getVoltageSet();
-  doc["currentSet"] = s->getCurrentSet();
-  doc["outputEnabled"] = s->isOutputEnabled();
-  doc["keypadLocked"] = s->isKeypadLocked();
-  doc["cvMode"] = s->isCvMode();
-  doc["protectionState"] = s->getProtectionState();
-  doc["maxVoltage"] = s->getMaxVoltage();
-  doc["minVoltage"] = s->getMinVoltage();
-  doc["maxCurrent"] = s->getMaxCurrent();
-  doc["minCurrent"] = s->getMinCurrent();
-  doc["maxPower"] = s->getMaxPower();
-  doc["configMaxVoltage"] = s->getConfigMaxVoltage();
-  doc["configMaxCurrent"] = s->getConfigMaxCurrent();
+  doc["deviceName"] = state->getDeviceName();
+  doc["manufacturer"] = state->getManufacturer();
+  doc["firmwareVersion"] = state->getFirmwareVersion();
+  doc["deviceOnline"] = state->isDeviceOnline();
+  doc["converterTopology"] = (int)state->getConverterTopology();
+  doc["voltageOut"] = state->getVoltageOut();
+  doc["currentOut"] = state->getCurrentOut();
+  doc["powerOut"] = state->getPowerOut();
+  doc["voltageIn"] = state->getVoltageIn();
+  doc["temperatureCelsius"] = state->getTemperatureCelsius();
+  doc["voltageSet"] = state->getVoltageSet();
+  doc["currentSet"] = state->getCurrentSet();
+  doc["outputEnabled"] = state->isOutputEnabled();
+  doc["keypadLocked"] = state->isKeypadLocked();
+  doc["cvMode"] = state->isCvMode();
+  doc["protectionState"] = state->getProtectionState();
+  doc["maxVoltage"] = state->getMaxVoltage();
+  doc["minVoltage"] = state->getMinVoltage();
+  doc["maxCurrent"] = state->getMaxCurrent();
+  doc["minCurrent"] = state->getMinCurrent();
+  doc["maxPower"] = state->getMaxPower();
+  doc["configMaxVoltage"] = state->getConfigMaxVoltage();
+  doc["configMaxCurrent"] = state->getConfigMaxCurrent();
   String json;
   serializeJson(doc, json);
   request->send(HTTP_OK, "application/json", json);
@@ -149,15 +149,15 @@ void RestService::handleGetState(AsyncWebServerRequest* request) {
  */
 void RestService::handleGetLimits(AsyncWebServerRequest* request) {
   Log_info("GET /api/limits");
-  const ConverterState* s = _deviceService->getState();
+  const ConverterState* state = _deviceService->getState();
   JsonDocument doc;
-  doc["manufacturer"] = s->getManufacturer();
-  doc["deviceName"] = s->getDeviceName();
-  doc["minVoltage"] = s->getMinVoltage();
-  doc["maxVoltage"] = s->getMaxVoltage();
-  doc["minCurrent"] = s->getMinCurrent();
-  doc["maxCurrent"] = s->getMaxCurrent();
-  doc["maxPower"] = s->getMaxPower();
+  doc["manufacturer"] = state->getManufacturer();
+  doc["deviceName"] = state->getDeviceName();
+  doc["minVoltage"] = state->getMinVoltage();
+  doc["maxVoltage"] = state->getMaxVoltage();
+  doc["minCurrent"] = state->getMinCurrent();
+  doc["maxCurrent"] = state->getMaxCurrent();
+  doc["maxPower"] = state->getMaxPower();
   String json;
   serializeJson(doc, json);
   request->send(HTTP_OK, "application/json", json);
@@ -170,11 +170,11 @@ void RestService::handleGetLimits(AsyncWebServerRequest* request) {
  */
 void RestService::handleGetMeasurements(AsyncWebServerRequest* request) {
   Log_info("GET /api/measurements");
-  const ConverterState* s = _deviceService->getState();
+  const ConverterState* state = _deviceService->getState();
   JsonDocument doc;
-  doc["voltage"] = s->getVoltageOut();
-  doc["current"] = s->getCurrentOut();
-  doc["power"] = s->getPowerOut();
+  doc["voltage"] = state->getVoltageOut();
+  doc["current"] = state->getCurrentOut();
+  doc["power"] = state->getPowerOut();
   String json;
   serializeJson(doc, json);
   request->send(HTTP_OK, "application/json", json);
@@ -234,14 +234,14 @@ void RestService::handlePutMeasurements(AsyncWebServerRequest* request, uint8_t*
     return;
   }
   JsonDocument doc;
-  DeserializationError err = deserializeJson(doc, data, len);
-  if (err || !doc.containsKey("voltage") || !doc.containsKey("current")) {
+  DeserializationError deserializationError = deserializeJson(doc, data, len);
+  if (deserializationError || !doc.containsKey("voltage") || !doc.containsKey("current")) {
     request->send(HTTP_BAD_REQUEST, "text/plain", "Missing or malformed 'voltage'/'current' field");
     return;
   }
-  double volts = doc["voltage"].as<double>();
+  double voltage = doc["voltage"].as<double>();
   double amperes = doc["current"].as<double>();
-  if (!_deviceService->setVoltageCurrent(volts, amperes)) {
+  if (!_deviceService->setVoltageCurrent(voltage, amperes)) {
     request->send(HTTP_BAD_REQUEST, "text/plain", "Value out of range or device write failed");
     return;
   }
@@ -260,13 +260,13 @@ void RestService::handlePutVoltage(AsyncWebServerRequest* request, uint8_t* data
     return;
   }
   JsonDocument doc;
-  DeserializationError err = deserializeJson(doc, data, len);
-  if (err || !doc.containsKey("voltage")) {
+  DeserializationError deserializationError = deserializeJson(doc, data, len);
+  if (deserializationError || !doc.containsKey("voltage")) {
     request->send(HTTP_BAD_REQUEST, "text/plain", "Missing or malformed 'voltage' field");
     return;
   }
-  double volts = doc["voltage"].as<double>();
-  if (!_deviceService->setVoltage(volts)) {
+  double voltage = doc["voltage"].as<double>();
+  if (!_deviceService->setVoltage(voltage)) {
     request->send(HTTP_BAD_REQUEST, "text/plain", "Value out of range or device write failed");
     return;
   }
@@ -285,15 +285,15 @@ void RestService::handlePutVoltageVerified(AsyncWebServerRequest* request, uint8
     return;
   }
   JsonDocument doc;
-  DeserializationError err = deserializeJson(doc, data, len);
-  if (err || !doc.containsKey("voltage")) {
+  DeserializationError deserializationError = deserializeJson(doc, data, len);
+  if (deserializationError || !doc.containsKey("voltage")) {
     request->send(HTTP_BAD_REQUEST, "text/plain", "Missing or malformed 'voltage' field");
     return;
   }
-  double volts = doc["voltage"].as<double>();
+  double voltage = doc["voltage"].as<double>();
   double confirmed = 0.0;
   bool conflict = false;
-  if (!_deviceService->setVoltageVerified(volts, confirmed, conflict)) {
+  if (!_deviceService->setVoltageVerified(voltage, confirmed, conflict)) {
     if (conflict) {
       request->send(HTTP_CONFLICT, "text/plain", "Voltage setpoint not accepted by device");
     } else {
@@ -320,8 +320,8 @@ void RestService::handlePutCurrent(AsyncWebServerRequest* request, uint8_t* data
     return;
   }
   JsonDocument doc;
-  DeserializationError err = deserializeJson(doc, data, len);
-  if (err || !doc.containsKey("current")) {
+  DeserializationError deserializationError = deserializeJson(doc, data, len);
+  if (deserializationError || !doc.containsKey("current")) {
     request->send(HTTP_BAD_REQUEST, "text/plain", "Missing or malformed 'current' field");
     return;
   }
@@ -345,8 +345,8 @@ void RestService::handlePutCurrentVerified(AsyncWebServerRequest* request, uint8
     return;
   }
   JsonDocument doc;
-  DeserializationError err = deserializeJson(doc, data, len);
-  if (err || !doc.containsKey("current")) {
+  DeserializationError deserializationError = deserializeJson(doc, data, len);
+  if (deserializationError || !doc.containsKey("current")) {
     request->send(HTTP_BAD_REQUEST, "text/plain", "Missing or malformed 'current' field");
     return;
   }
@@ -380,13 +380,13 @@ void RestService::handlePutOutput(AsyncWebServerRequest* request, uint8_t* data,
     return;
   }
   JsonDocument doc;
-  DeserializationError err = deserializeJson(doc, data, len);
-  if (err || !doc.containsKey("outputEnable")) {
+  DeserializationError deserializationError = deserializeJson(doc, data, len);
+  if (deserializationError || !doc.containsKey("outputEnable")) {
     request->send(HTTP_BAD_REQUEST, "text/plain", "Missing or malformed 'outputEnable' field");
     return;
   }
-  bool on = doc["outputEnable"].as<bool>();
-  if (!_deviceService->setOutput(on)) {
+  bool outputEnabled = doc["outputEnable"].as<bool>();
+  if (!_deviceService->setOutput(outputEnabled)) {
     request->send(HTTP_INTERNAL_SERVER_ERROR, "text/plain", "Device write failed");
     return;
   }
@@ -405,13 +405,13 @@ void RestService::handlePutKeypad(AsyncWebServerRequest* request, uint8_t* data,
     return;
   }
   JsonDocument doc;
-  DeserializationError err = deserializeJson(doc, data, len);
-  if (err || !doc.containsKey("keypadLock")) {
+  DeserializationError deserializationError = deserializeJson(doc, data, len);
+  if (deserializationError || !doc.containsKey("keypadLock")) {
     request->send(HTTP_BAD_REQUEST, "text/plain", "Missing or malformed 'keypadLock' field");
     return;
   }
-  bool locked = doc["keypadLock"].as<bool>();
-  if (!_deviceService->setKeypad(locked)) {
+  bool keypadLocked = doc["keypadLock"].as<bool>();
+  if (!_deviceService->setKeypad(keypadLocked)) {
     request->send(HTTP_INTERNAL_SERVER_ERROR, "text/plain", "Device write failed");
     return;
   }

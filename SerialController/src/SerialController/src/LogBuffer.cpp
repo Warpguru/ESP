@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <Preferences.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <stdarg.h>
@@ -11,8 +12,8 @@
 /**
  * LogBuffer.cpp - Levelled logger with in-RAM ring buffer and Serial output.
  *
- * Level ordering matches Log4j2: higher integer = less severe.
- * A message is emitted when its level integer >= the active level integer.
+ * Level ordering matches Log4j2: higher levelOrdinal() = less severe.
+ * A message is emitted when its levelOrdinal() >= the active level's levelOrdinal().
  * Default active level: INFO (200). TRACE (0) is most verbose.
  *
  * Each Log_info/warn/error/debug/trace(fmt, ...) macro call:
@@ -30,112 +31,141 @@
 // Global singleton defined here; declared extern in LogBuffer.h.
 LogBufferClass Log;
 
-// ---- Helpers ---------------------------------------------------------------
+// ---- LogLevel static constants ---------------------------------------------
+// String literals are stored in flash (PROGMEM-compatible); no heap used.
 
-static const char* levelName(LogLevel lv) {
-  switch (lv) {
-    case LogLevel::ERROR:
-      return "ERROR";
-    case LogLevel::WARN:
-      return "WARN ";
-    case LogLevel::INFO:
-      return "INFO ";
-    case LogLevel::DEBUG:
-      return "DEBUG";
-    case LogLevel::TRACE:
-      return "TRACE";
-    default:
-      return "?    ";
-  }
+const LogLevel LogLevel::TRACE("TRACE", 0);
+const LogLevel LogLevel::DEBUG("DEBUG", 100);
+const LogLevel LogLevel::INFO ("INFO",  200);
+const LogLevel LogLevel::WARN ("WARN",  300);
+const LogLevel LogLevel::ERROR("ERROR", 400);
+
+// values() — returns a pointer to a static array of const LogLevel pointers.
+// The array is a static local, initialised exactly once, no heap allocation.
+const LogLevel* const* LogLevel::values(size_t& count) {
+  static const LogLevel* const all[] = {
+    &LogLevel::TRACE,
+    &LogLevel::DEBUG,
+    &LogLevel::INFO,
+    &LogLevel::WARN,
+    &LogLevel::ERROR
+  };
+  count = sizeof(all) / sizeof(all[0]);
+  return all;
 }
+
+// ---- LogBufferClass static members -----------------------------------------
+
+const LogLevel& LogBufferClass::DEFAULT_LEVEL = LogLevel::INFO;
+
+// ---- Helpers ---------------------------------------------------------------
 
 // Strip directory prefix from __FILE__ so only the filename appears in output.
 static const char* fileBasename(const char* path) {
-  const char* p = path;
+  const char* result = path;
   while (*path) {
     if (*path == '/' || *path == '\\') {
-      p = path + 1;
+      result = path + 1;
     }
     path++;
   }
-  return p;
+  return result;
 }
 
 // ---- LogBufferClass --------------------------------------------------------
 
 void LogBufferClass::begin() {
   mutex = xSemaphoreCreateMutex();
+
+  // Load persisted log level from NVS; keep the compile-time default on error.
+  // If nothing is stored yet (fresh device or pre-persistence firmware), write
+  // the default level now so it is present in NVS from the next boot onward.
+  bool found = false;
+  Preferences prefs;
+  if (prefs.begin(LOG_NVS_NAMESPACE, /* readOnly= */ true)) {
+    String stored = prefs.getString(LOG_NVS_KEY_LEVEL, "");
+    prefs.end();
+    if (stored.length() > 0 && setLevelFromString(stored.c_str())) {
+      // Valid level found in NVS — applied successfully.
+      found = true;
+    }
+    // If stored.length() > 0 but setLevelFromString returned false the stored
+    // string is unrecognised (e.g. corrupted NVS entry).  Fall through to the
+    // !found branch so the compile-time default is written over it.
+  }
+  if (!found) {
+    // Nothing stored, or the stored value was invalid: persist the default
+    // so NVS is correct from the next boot onward.
+    activeLevel = &DEFAULT_LEVEL;
+    saveLevel();
+  }
 }
 
-void LogBufferClass::logError(const char* file, int line, const char* fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  append(LogLevel::ERROR, file, line, fmt, args);
-  va_end(args);
+void LogBufferClass::saveLevel() const {
+  Preferences prefs;
+  if (prefs.begin(LOG_NVS_NAMESPACE, /* readOnly= */ false)) {
+    prefs.putString(LOG_NVS_KEY_LEVEL, activeLevel->name());
+    prefs.end();
+  }
 }
 
-void LogBufferClass::logWarn(const char* file, int line, const char* fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  append(LogLevel::WARN, file, line, fmt, args);
-  va_end(args);
+void LogBufferClass::logError(const char* file, int line, const char* format, ...) {
+  va_list formatArgs;
+  va_start(formatArgs, format);
+  append(LogLevel::ERROR, file, line, format, formatArgs);
+  va_end(formatArgs);
 }
 
-void LogBufferClass::logInfo(const char* file, int line, const char* fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  append(LogLevel::INFO, file, line, fmt, args);
-  va_end(args);
+void LogBufferClass::logWarn(const char* file, int line, const char* format, ...) {
+  va_list formatArgs;
+  va_start(formatArgs, format);
+  append(LogLevel::WARN, file, line, format, formatArgs);
+  va_end(formatArgs);
 }
 
-void LogBufferClass::logDebug(const char* file, int line, const char* fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  append(LogLevel::DEBUG, file, line, fmt, args);
-  va_end(args);
+void LogBufferClass::logInfo(const char* file, int line, const char* format, ...) {
+  va_list formatArgs;
+  va_start(formatArgs, format);
+  append(LogLevel::INFO, file, line, format, formatArgs);
+  va_end(formatArgs);
 }
 
-void LogBufferClass::logTrace(const char* file, int line, const char* fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  append(LogLevel::TRACE, file, line, fmt, args);
-  va_end(args);
+void LogBufferClass::logDebug(const char* file, int line, const char* format, ...) {
+  va_list formatArgs;
+  va_start(formatArgs, format);
+  append(LogLevel::DEBUG, file, line, format, formatArgs);
+  va_end(formatArgs);
 }
 
-LogLevel LogBufferClass::getLevel() const {
-  return level;
+void LogBufferClass::logTrace(const char* file, int line, const char* format, ...) {
+  va_list formatArgs;
+  va_start(formatArgs, format);
+  append(LogLevel::TRACE, file, line, format, formatArgs);
+  va_end(formatArgs);
 }
 
-void LogBufferClass::setLevel(LogLevel lv) {
-  level = lv;
+const LogLevel& LogBufferClass::getLogLevel() const {
+  return *activeLevel;
+}
+
+void LogBufferClass::setLogLevel(const LogLevel& logLevel) {
+  activeLevel = &logLevel;
 }
 
 bool LogBufferClass::setLevelFromString(const char* name) {
-  if (strcasecmp(name, "ERROR") == 0) {
-    level = LogLevel::ERROR;
-    return true;
-  }
-  if (strcasecmp(name, "WARN") == 0) {
-    level = LogLevel::WARN;
-    return true;
-  }
-  if (strcasecmp(name, "INFO") == 0) {
-    level = LogLevel::INFO;
-    return true;
-  }
-  if (strcasecmp(name, "DEBUG") == 0) {
-    level = LogLevel::DEBUG;
-    return true;
-  }
-  if (strcasecmp(name, "TRACE") == 0) {
-    level = LogLevel::TRACE;
-    return true;
+  size_t count;
+  const LogLevel* const* levels = LogLevel::values(count);
+  for (size_t i = 0; i < count; i++) {
+    if (strcasecmp(name, levels[i]->name()) == 0) {
+      activeLevel = levels[i];
+      return true;
+    }
   }
   return false;
 }
 
 const char* LogBufferClass::getLevelName() const {
-  return levelName(level);
+  return activeLevel->name();
 }
 
 void LogBufferClass::getJson(String& out) const {
@@ -144,14 +174,14 @@ void LogBufferClass::getJson(String& out) const {
   xSemaphoreTake(mutex, portMAX_DELAY);
 
   int oldest = (count < LOG_BUFFER_LINES) ? 0 : head;
-  int n = count;
+  int lineCount = count;
 
   JsonDocument doc;
-  doc["level"] = getLevelName();
+  doc["level"] = activeLevel->name();
   JsonArray arr = doc["log"].to<JsonArray>();
-  for (int i = 0; i < n; i++) {
-    int idx = (oldest + i) % LOG_BUFFER_LINES;
-    arr.add(lines[idx]);
+  for (int i = 0; i < lineCount; i++) {
+    int bufferIndex = (oldest + i) % LOG_BUFFER_LINES;
+    arr.add(lines[bufferIndex]);
   }
 
   xSemaphoreGive(mutex);
@@ -168,20 +198,22 @@ void LogBufferClass::clear() {
 
 // ---- Private ---------------------------------------------------------------
 
-void LogBufferClass::append(LogLevel lv, const char* file, int line, const char* fmt, va_list args) {
-  // Log4j2 semantics: emit when message level integer >= active level integer.
+void LogBufferClass::append(const LogLevel& logLevel, const char* file, int line, const char* format, va_list formatArgs) {
+  // Log4j2 semantics: emit when message levelOrdinal() >= active levelOrdinal().
   // e.g. active=INFO(200): emit ERROR(400) and WARN(300), suppress DEBUG(100) and TRACE(0).
-  if (static_cast<int>(lv) < static_cast<int>(level)) {
+  if (logLevel.levelOrdinal() < activeLevel->levelOrdinal()) {
     return;
   }
 
   // Format the message, then the full log line with location prefix.
-  char msg[LOG_BUFFER_LINE_LEN];
-  vsnprintf(msg, sizeof(msg), fmt, args);
+  // %-5s left-justifies the level name in a 5-char field so all prefixes
+  // align: "[ERROR]", "[WARN ]", "[INFO ]", "[DEBUG]", "[TRACE]".
+  char message[LOG_BUFFER_LINE_LEN];
+  vsnprintf(message, sizeof(message), format, formatArgs);
 
   char logLine[LOG_BUFFER_LINE_LEN];
-  snprintf(logLine, sizeof(logLine), "[%s][%s:%d] %s",
-           levelName(lv), fileBasename(file), line, msg);
+  snprintf(logLine, sizeof(logLine), "[%-5s][%s:%d] %s",
+           logLevel.name(), fileBasename(file), line, message);
 
   // Print to Serial (UART0) — no hooks, no build flags required.
   Serial.println(logLine);

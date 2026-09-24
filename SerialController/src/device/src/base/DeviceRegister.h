@@ -15,6 +15,12 @@
  */
 class DeviceRegister {
  public:
+  /**
+   * Looks up a register name by address in the global registry.
+   * Returns defaultName if the address is not registered.
+   */
+  static const char* lookupName(uint16_t address, const char* defaultName = nullptr);
+
   /** Human-readable register name (e.g. "Voltage Setpoint"). */
   const char* name;
 
