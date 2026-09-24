@@ -387,13 +387,23 @@ void setupServer() {
   // alive and its request arguments are still valid.  Reading wm.server->arg()
   // AFTER autoConnect() returns is too late - the server has already shut down
   // and the args are gone, which is why the level appeared not to be saved.
-  wm.setSaveParamsCallback([&logLevelParam]() {
+  //
+  // setSaveConfigCallback fires whenever WiFiManager saves ANY configuration
+  // (WiFi credentials or custom params).  It is registered in addition to
+  // setSaveParamsCallback because on some WiFiManager versions the params
+  // callback is only triggered when the custom-params form is submitted
+  // separately - it does not fire on a plain first-time credential save.
+  // Registering both callbacks ensures the level is always persisted regardless
+  // of which form the user submitted.
+  auto saveLevelCallback = [&logLevelParam]() {
     const char* chosen = logLevelParam.getValue();
     if (chosen != nullptr && chosen[0] != '\0' && Log.setLevelFromString(chosen)) {
       Log.saveLevel();
       Log_info("Log level set from portal to %s", Log.getLevelName());
     }
-  });
+  };
+  wm.setSaveParamsCallback(saveLevelCallback);
+  wm.setSaveConfigCallback(saveLevelCallback);
 
   if (!wm.autoConnect("SerialController")) {
     Log_error("WiFi Connection Failed! Halting with SOS signal.");

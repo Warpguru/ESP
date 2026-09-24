@@ -50,6 +50,49 @@ Use **Sketch → Include Library → Manage Libraries…** and install:
 
 ---
 
+## Flashing a Pre-built Binary
+
+If a compiled binary is available (e.g. built via **Sketch → Export Compiled Binary**
+in the Arduino IDE), it can be flashed directly without rebuilding from source.
+
+### 1. Export the binary (Arduino IDE)
+
+Open the sketch in Arduino IDE, select the correct board (**ESP32 Dev Module**) and
+port, then choose **Sketch → Export Compiled Binary**. The IDE writes the merged
+flash image to:
+
+```
+SerialController\build\esp32.esp32.esp32\SerialController.ino.merged.bin
+```
+
+The `.merged.bin` file is a single flat image that includes the bootloader, partition
+table, and application — it can be written to address `0x0` in one `esptool` command.
+
+### 2. Flash with esptool
+
+Replace `COM3` with the actual port name (e.g. `COM4`, `/dev/ttyUSB0`):
+
+```
+"D:\Development\Arduino\Users\ArduinoIDE\AppData\Local\Arduino15\packages\esp32\tools\esptool_py\5.3.1\esptool.exe" ^
+  --chip esp32 ^
+  --port COM3 ^
+  --baud 921600 ^
+  write-flash 0x0 "SerialController\build\esp32.esp32.esp32\SerialController.ino.merged.bin"
+```
+
+> **esptool path** — the version number (`5.3.1`) in the path above reflects the version
+> bundled with the ESP32 Arduino core at the time of writing. The actual path on your
+> machine may differ. Run `where esptool.exe` (Windows) or check
+> `%LOCALAPPDATA%\Arduino15\packages\esp32\tools\esptool_py\` to find the installed version.
+
+> **Baud rate** — `921600` is the fastest rate that works reliably on most USB-serial
+> adapters. If the flash fails with framing errors, retry at `460800` or `115200`.
+
+> **First boot after flashing** — the ESP32 starts in WiFi captive-portal mode. See
+> [First-time WiFi Setup](#first-time-wifi-setup).
+
+---
+
 ## Hardware Wiring
 
 ### Serial2 - Modbus RTU to DC/DC converter
